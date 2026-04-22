@@ -27,10 +27,10 @@ Every skill in this repo has an entry below. Format: purpose, inputs, outputs, e
 **Purpose:** Gate the pipeline on input quality. Either green-lights the spec (all required sections present, unambiguous) or returns surgical gap-fills with line-numbers and required-field hints. The single human touchpoint per the hands-off vision.
 **Inputs:** Path to `client-spec.md`
 **Outputs:** `STATUS: pass` (with `sections_found`, `optional_present`, `ready_for_classify: true`) OR `STATUS: gaps` (with `missing_required[]`, `ambiguous_required[]`, fix instructions, `ready_for_classify: false`)
-**Enforces patterns:** BP-026 (sole human touchpoint), BP-027 (input gate before classify), BP-028 (BLOCKER convention as fail-mode)
+**Enforces patterns:** BP-026 (sole human touchpoint), BP-027 (input gate before classify), BP-028 (BLOCKER convention as fail-mode), BP-032 (fixtures at skill root)
 **When invoked:** Driver Phase 1 (always, first). Also independently invocable for ad-hoc spec checking.
 **Standalone usable:** Yes — `/skill-spec-validator path/to/spec.md` returns same output.
-**Status:** 🔵 Planned (Stage 3 — first sub-skill built; serves as template for the rest)
+**Status:** 🟢 Live (Stage 3 complete 2026-04-22). 12/13 compliance (1 skip for scripts/). Verified end-to-end against both fixtures via isolated Agent subagents — passing-spec → STATUS: pass with 10/10 required + 3 optional; gaps-spec → STATUS: gaps with 2 missing + 7 ambiguous (9/9 semantic match against expected-gaps.md). Template for all future sub-skills.
 
 ---
 

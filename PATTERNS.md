@@ -279,6 +279,34 @@ The single source of truth for every authoring discipline `skill-factory` enforc
 **Correct:** PR adds BP-### entry → second PR adds the sub-skill code that enforces it.
 **Incorrect:** PR adds new sub-skill behavior without updating PATTERNS.md or SKILLS.md.
 
+### BP-032: Fixtures live at the skill root as `fixtures/`, not under `references/`
+**Source:** Stage 3 of skill-factory build (2026-04-22); surfaced by `/skill-compliance` flagging `references/fixtures/` as a nested-reference violation.
+**Why:** `references/fixtures/` appears nested under `references/`, which triggers the BP-008 "one level deep" compliance warning. Fixtures are test data (not reference content the skill loads during live invocations), so they belong parallel to `references/`, following the BP-009 pattern. This keeps `references/` flat and the compliance check clean.
+**When applicable:** Every sub-skill that ships with fixtures (all of them, per stage-cadence rule "no sub-skill ships without fixtures").
+**Enforced by:** `skill-references-scaffolder` (will refuse to nest `fixtures/` under `references/`); `skill-compliance` (BP-008 catches the misplacement).
+**Correct layout:**
+```
+skill-X/
+├── SKILL.md
+├── references/
+│   └── <rule-contracts>.md
+└── fixtures/
+    ├── passing-input.md
+    ├── gaps-input.md (or failing-input.md)
+    ├── expected-pass.md
+    └── expected-gaps.md
+```
+**Incorrect layout:**
+```
+skill-X/
+├── SKILL.md
+└── references/
+    ├── <rule-contracts>.md
+    └── fixtures/        ← triggers BP-008 warning
+        └── ...
+```
+**Naming convention:** At minimum, one passing fixture + one failing fixture + an `expected-*.md` per fixture showing the exact output the skill must produce. Additional fixtures named after the scenario they exercise (e.g., `fixtures/large-input.md` + `fixtures/expected-large.md`).
+
 ### BP-031: Co-locate tools that co-evolve in the same repo
 **Source:** `feedback-colocate-co-evolving-tools.md`; Carter's Phase 4 round 2 requirement to migrate `/skill-compliance` into the factory repo
 **Why:** When a tool and the rules it enforces evolve together, separate repos create stale-rubric problems. New best-practice → new compliance rule → new sub-skill behavior should ship as one PR, not three coordinated ones.
