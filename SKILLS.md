@@ -174,7 +174,7 @@ Every skill in this repo has an entry below. Format: purpose, inputs, outputs, e
 **Enforces patterns:** BP-001, BP-003, BP-004, BP-005, BP-006, BP-007, BP-008, BP-021 (and growing — patterns added to PATTERNS.md should add corresponding checks here)
 **When invoked:** Standalone for ad-hoc audit; wrapped by `skill-compliance-gate` for in-pipeline use.
 **Standalone usable:** Yes — `/skill-compliance <path>`.
-**Status:** 🟡 Migrated (Stage 2 — moved from `~/.claude/skills/skill-compliance/` into `~/Projects/skill-factory/skill-compliance/`)
+**Status:** 🟢 Live + 🟡 Migrated (Stage 2 complete 2026-04-22). Source now at `~/Projects/skill-factory/skill-compliance/`; `~/.claude/skills/skill-compliance` is a symlink into the repo. Parity verified: 13/13 pass on `/411-deck` via both the pre-migration dir and the post-migration symlink (identical output diff).
 
 ---
 
