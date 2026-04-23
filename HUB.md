@@ -13,9 +13,9 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 ## Status snapshot
 
-- **Current stage:** Matrix exercise complete + ADR-0001 landed (2026-04-23). Next: Stage 4 (spec authoring ergonomics).
-- **Latest commit:** `88c864c` (ADR-0001)
-- **Stages shipped:** 3 of N (N depends on first-archetype exercise; likely 7–9)
+- **Current stage:** Stage 4 shipped (2026-04-23). Next: Stage 5 (driver skeleton + `trait_predicates.py`).
+- **Latest commit:** Stage 4 (spec authoring ergonomics) — pending
+- **Stages shipped:** 4 of N (N depends on remaining driver work; likely 7–9)
 - **Sub-skills shipped:** 2 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
 - **Patterns structure:** 12 Universal / 11 Conditional / 11 Meta — split into `patterns/` directory with per-BP files (Stage 3.5)
@@ -47,11 +47,12 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 _Current state:_
 
-- Stages complete: **3 / N** — Stage 3.5 in-progress
+- Stages complete: **4 / N**
 - Sub-skills shipped: **2 / 15** target (~6 expected per first archetype)
 - Patterns: **34** after Stage 3.5
 - Per-client repos: 0
 - End-to-end skills authored hands-off: 0
+- Spec authoring aids shipped: **3 / 3** (template, example, anti-patterns) — all pass `/skill-spec-validator`
 
 ## TODOs
 
@@ -72,12 +73,10 @@ _Current state:_
 
 - [x] **BP × real-skill matrix exercise** — 20 skills classified; ADR-0001 authored and locks Frame C + 5 traits. Predicate refinements noted for Stage 5 implementation.
 - [ ] ~~First archetype decision~~ — **obviated by Frame C.** The factory no longer branches on named archetypes. Stage 4+ proceeds under the rule-engine model.
-- [ ] **Stage 4: spec authoring ergonomics** — three deliverables under `skill-factory/assets/`:
-  1. `client-spec-template.md` (blank form, NO archetype field per ADR-0001)
-  2. `client-spec-examples/<first-example>.md` (recommend a docx-style transformation spec as the first concrete example)
-  3. `spec-anti-patterns.md` (common mistakes: vague outputs, missing failure modes, conflicting trigger phrases, single-use sub-skill proposals per BP-034)
-  - All three must pass `/skill-spec-validator` cleanly end-to-end.
-  - One commit, one stage, stop-and-review after.
+- [x] **Stage 4: spec authoring ergonomics** — shipped 2026-04-23.
+  1. `assets/client-spec-template.md` (no archetype field per ADR-0001; passes validator unmodified as smoke-test fixture)
+  2. `assets/client-spec-examples/acme-board-memo.md` (docx-style transformation, composes with `/docx`; passes validator + BP-034)
+  3. `assets/spec-anti-patterns.md` (9 documented anti-patterns covering the HUB-specified four plus passive-voice walkthroughs, subjective signals, archetype-hint obsolescence, and semantic template fill-in mistakes)
 - [ ] **Stage 5: driver skeleton + `trait_predicates.py`** — 5-predicate Phase 4 loop. Implementation must handle the 4 classifier edge cases captured in [feedback-trait-classifier-edge-cases.md](../../../.claude/projects/-Users-carterking/memory/feedback-trait-classifier-edge-cases.md): sibling .md as refs, alt phase naming, gstack preamble skip, conservative invokes detection with paired-family toggle exclusion.
 - [ ] **Post-Stage-5 review:** promote BP-035 candidate ([feedback-no-gstack-preamble-in-factory-subskills.md](../../../.claude/projects/-Users-carterking/memory/feedback-no-gstack-preamble-in-factory-subskills.md)) into `patterns/meta/bp-035-no-factory-preamble.md` when the first factory sub-skill PR surfaces the discipline.
 
@@ -91,6 +90,18 @@ _Current state:_
 - [ ] **BP-034 validator now does filesystem lookups** — `skill-spec-validator`'s BP-034 gap check checks `~/.claude/skills/<name>/` existence when a spec names a `/<skill>` in the reuse section. This means the validator's behavior depends on the ecosystem's installed-skill state, not just the spec content. Keep it this way (per BP-034), but remember it's an external dependency: a factory run in a different environment (e.g., a clean CI runner without gstack installed) will reject specs that would pass in Carter's local setup.
 
 ## Progress log (newest first)
+
+### Stage 4 — spec authoring ergonomics (2026-04-23, commit pending)
+- **Three deliverables landed under `assets/`:**
+  - `client-spec-template.md` — blank-but-validator-passing form. Pre-filled with minimum content that satisfies every content rule, so an unmodified copy acts as a self-test fixture against contract regressions. No `## Archetype hint` section per ADR-0001.
+  - `client-spec-examples/acme-board-memo.md` — concrete docx-style transformation example (cover page + TOC + section styling + confidential footer). Composes with `/docx`; BP-034 check passes against the real ecosystem skill. Deliberately distinct from the `convert-md-to-docx` fixture inside the validator so the two serve different roles (self-test vs. reference).
+  - `spec-anti-patterns.md` — documentation covering 9 anti-patterns: vague outputs, missing failure handling, non-verbatim trigger phrases, BP-034 sub-skill inflation, passive-voice walkthroughs, subjective success signals, over-long descriptions, obsolete archetype hints, and semantic template-fill-in mistakes. Each entry shows bad/why/fix.
+- **Validator runs (isolated Agent subtasks, standalone mode):**
+  - `client-spec-template.md` → `status: pass`, 10/10 required, optional: Edge cases + Anti-goals.
+  - `acme-board-memo.md` → `status: pass`, 10/10 required, optional: Edge cases + Anti-goals. BP-034 confirmed `/docx` exists at `~/.claude/skills/docx/`.
+  - Anti-patterns doc intentionally NOT validated — it is documentation, not a spec.
+- **Unblocks:** Stage 5 (driver skeleton) — clients now have an ergonomic on-ramp to the input gate, reducing the "read the whole contract file" friction that made Stage 3 adoption a pure-expert workflow.
+- **Deferred to Stage 5+ or later:** optional-section cleanup in `spec-requirements.md` (the `Archetype hint` optional rule still exists for backward compat with pre-ADR specs; new specs are told to omit it in the anti-patterns doc instead of forcing a contract change this stage).
 
 ### Matrix exercise + ADR-0001 (2026-04-23, commit `88c864c`)
 - **20-skill × 5-trait matrix** run against representative skills (docx, pptx, pdf, 411-suite, freeze, guard, email-tracker, skill-creator, autoresearch, skill-compliance, brain-dump, checkpoint, skill-spec-validator, kpi-setter, new-project, retro, plan-ceo-review, office-hours).
