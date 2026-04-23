@@ -73,6 +73,18 @@ The factory does NOT branch on named archetypes. Instead, the driver at Phase 4 
 
 ---
 
+## skill-phase-designer
+
+**Purpose:** Produce a drop-in `## Procedure` section for the target skill's SKILL.md. Rewrites the spec's Happy-path walkthrough into imperative-voice numbered steps, applies BP-010 (apply once, carry forward), and — when `has_hitl` co-fires — inserts hard gates (BP-012), announces phase transitions (BP-011), enforces the "ask user first, then suggest" pattern (BP-013), and formats user questions per BP-015/016.
+**Inputs:** `phases/02-skill-phase-designer/input.md` (spec excerpt with Happy-path walkthrough, Inputs, Outputs, Failure modes + reuse sections; classified traits; list of BP file paths).
+**Outputs:** `output.md` (the draft Procedure section) + `notes.md` (blockers or informational observations).
+**Enforces patterns:** BP-010 (apply-once-carry-forward), BP-011 (announce transitions, when `has_hitl`), BP-012 (hard gates, when `has_hitl`), BP-013 (ask-user-first, when `has_hitl`), BP-015 (numbered questions, when `has_hitl`), BP-016 (≤4 inline questions, when `has_hitl`), BP-028 (BLOCKER convention), BP-033 (read only `input.md`)
+**When invoked:** Driver Phase 4 when `has_phases: true`. Second sub-skill after `skill-frontmatter`. Stage 7a ships it standalone; Stage 7b (pending) wires the driver's Phase 4 to invoke it.
+**Standalone usable:** Yes — `/skill-phase-designer <input.md-path>`. Reads `input.md`, produces `output.md` + `notes.md` in the same directory.
+**Status:** 🟢 Live standalone (Stage 7a shipped 2026-04-23). 23/23 phase-lint tests pass. Live Agent verification against all three fixtures: no-HITL → 9-step Procedure with lint clean; HITL → 6-step Procedure with 3 hard gates + AskUserQuestion choices + phase-transition announcements, lint clean; gaps → correct BLOCKER on <3-step walkthrough. Driver integration pending Stage 7b.
+
+---
+
 ## skill-description-triggers
 
 **Purpose:** Optimize a skill's description for reliable triggering. Generates 20 trigger eval queries (8–10 should-trigger + 8–10 near-miss should-not-trigger), runs them against the description, iterates with extended thinking up to 5 times, picks best by held-out test score. Wraps Anthropic `/skill-creator`'s `run_loop.py`.

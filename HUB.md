@@ -13,9 +13,9 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 ## Status snapshot
 
-- **Current stage:** Stage 6b shipped (2026-04-23). First true end-to-end factory run: spec → validator → classifier → pack → skill-frontmatter subagent → lint-clean YAML, hands-off. Next: Stage 7 (second sub-skill — `skill-phase-designer` when `has_phases` fires).
-- **Latest commit:** Stage 6b — driver Phase 3/4 wiring — `fbbffaa` (Stage 6a landed as `a529ffb`; Stage 5 as `79110a0`; Stage 5.1 as `99f4996`)
-- **Stages shipped:** 7 of N (counting 6a + 6b as full stages)
+- **Current stage:** Stage 7a shipped (2026-04-23). Second sub-skill `skill-phase-designer` live standalone — 23/23 tests pass, 3 live fixtures verified (no-HITL, HITL, gaps). Next: Stage 7b (wire driver Phase 4 to invoke phase-designer when `has_phases` fires).
+- **Latest commit:** Stage 7a — skill-phase-designer standalone — pending (Stage 6b landed as `fbbffaa`; Stage 6a as `a529ffb`; Stage 5 as `79110a0`; Stage 5.1 as `99f4996`)
+- **Stages shipped:** 8 of N (counting 6a, 6b, 7a as full stages)
 - **Sub-skills shipped:** 4 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested; `skill-factory` driver skeleton with live Phase 1+2; `skill-frontmatter` standalone with deterministic lint + live Agent verification)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
 - **Patterns structure:** 12 Universal / 11 Conditional / 11 Meta — split into `patterns/` directory with per-BP files (Stage 3.5)
@@ -47,17 +47,18 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 _Current state:_
 
-- Stages complete: **6b / N**
-- Sub-skills shipped: **4 / 15** target
+- Stages complete: **7a / N**
+- Sub-skills shipped: **5 / 15** target (`skill-compliance`, `skill-spec-validator`, `skill-factory` driver, `skill-frontmatter`, `skill-phase-designer`)
 - Patterns: **34** after Stage 3.5
 - Per-client repos: 0
-- End-to-end skills authored hands-off: **frontmatter slice only** (driver produces compliant frontmatter YAML from a spec; full SKILL.md body still needs `skill-phase-designer` + `skill-references-scaffolder` + `skill-compliance-gate`).
+- End-to-end skills authored hands-off: **frontmatter slice only** (driver produces compliant frontmatter YAML from a spec; Procedure section can be generated standalone but is not yet wired into Phase 4).
 - Spec authoring aids shipped: **3 / 3** (template, example, anti-patterns) — all pass `/skill-spec-validator`
-- Driver operational phases: **4 / 6** (Phase 1 input gate + Phase 2 trait classification + Phase 3 pack materialization + Phase 4 frontmatter subagent). Phases 5–6 deferred to Stage 7+ (BP-029).
+- Driver operational phases: **4 / 6** (Phase 1 input gate + Phase 2 trait classification + Phase 3 pack materialization + Phase 4 frontmatter subagent). Phase 4 gains phase-designer-invocation in Stage 7b. Phases 5–6 deferred further per BP-029.
 - Trait classifier tests: **10 / 10 pass**.
-- Pack builder tests: **14 / 14 pass** (section parsing, slug extraction, trait-block rendering, acme round-trip, negative cases, CLI).
+- Pack builder tests: **14 / 14 pass**.
 - Frontmatter lint tests: **22 / 22 pass**.
-- End-to-end live Agent verification (2026-04-23): driver-materialized pack drove `skill-frontmatter` subagent to produce lint-clean `output.yaml` for acme-board-memo on first attempt — 0 fails, 0 warns, 7 trigger phrases, 394-char description, Rationale + notes.md co-written.
+- Phase lint tests: **23 / 23 pass** (numbering, imperative verb, weak voice, hard gates, numbered questions, ≤4 inline questions, CLI integration).
+- End-to-end live Agent verification: driver-materialized pack drove `skill-frontmatter` to produce lint-clean `output.yaml` for acme-board-memo on first attempt. `skill-phase-designer` verified live across 3 fixtures (no-HITL → 9-step Procedure; HITL → 6-step Procedure with 3 hard gates + AskUserQuestion for choices; gaps → correct BLOCKER at Step 4 on <3-step walkthrough).
 
 ## TODOs
 
@@ -86,7 +87,9 @@ _Current state:_
 - [x] **Stage 5.1: scope gstack family out of classifier** — shipped 2026-04-23 (commit `99f4996`). Docs-only. Scoping captured in `skill-factory/references/trait-edge-cases.md` §Out of scope + saved as `feedback-gstack-out-of-scope-for-factory-classifier.md` memory.
 - [x] **Stage 6a: skill-frontmatter (standalone)** — shipped 2026-04-23. Sub-skill at `skill-frontmatter/` with SKILL.md, `references/frontmatter-rules.md` (5 rules), `scripts/frontmatter_lint.py` (pure stdlib YAML parser + deterministic lint), 2 fixtures (passing + gaps), 22/22 lint tests pass. Live Agent verification against both fixtures confirms end-to-end behavior.
 - [x] **Stage 6b: driver Phase 3/4 wiring** — shipped 2026-04-23. `skill-factory/scripts/build_context_pack.py` (pure stdlib, 14 unit tests) materializes `phases/01-skill-frontmatter/input.md`. Driver SKILL.md Step 3 runs the pack builder, Step 4 spawns `skill-frontmatter` as an isolated Agent subtask. Live end-to-end on acme-board-memo spec produced lint-clean `output.yaml` on first attempt (0 fails, 0 warns). First true end-to-end factory run.
-- [ ] **Stage 7: `skill-phase-designer`** — next sub-skill. Fires when `has_phases: true`. Designs the driver-materialized pack contract for phased-walkthrough SKILL.md body (the "Procedure" section). Should follow the 6a pattern: standalone sub-skill first (tests + fixtures + live Agent verification), then 7b wires Phase 4 to call it when trait fires.
+- [x] **Stage 7a: `skill-phase-designer` standalone** — shipped 2026-04-23. Sub-skill at `skill-phase-designer/` (sibling to `skill-frontmatter/`). SKILL.md with 10-step procedure, `references/phase-design-rules.md` (6 rules), `scripts/phase_lint.py` (pure stdlib). 23/23 unit tests pass. Three fixtures verified live: no-HITL (9-step clean Procedure), HITL (6-step Procedure with 3 hard gates + AskUserQuestion for per-topic choice), gaps (correct BLOCKER on <3-step walkthrough).
+- [ ] **Stage 7b: driver Phase 4 wiring for phase-designer** — extend `build_context_pack.py` with `skill-phase-designer` target (spec sections: Happy-path walkthrough, Inputs, Outputs, Failure modes, Existing skills to reuse + HITL-related sections when `has_hitl`; BP list: BP-010 always + BP-011/012/013/015/016 when `has_hitl`). Extend driver SKILL.md with Step 4b (invoke phase-designer when `has_phases: true`). End-to-end run should produce frontmatter + Procedure section for a client spec hands-off.
+- [ ] **Stage 8+: remaining sub-skills** — `skill-references-scaffolder` (when `has_references` fires; BP-007, BP-008, BP-009), `skill-compliance-gate` (Phase 5 universal), `skill-cron-observability` (when `is_scheduled` fires; BP-022), `skill-signed-handoff` (when `has_phases` ∧ `invokes_skills`; BP-024). Per BP-029 ship one at a time.
 - [ ] **Post-Stage-5 review:** promote BP-035 candidate ([feedback-no-gstack-preamble-in-factory-subskills.md](../../../.claude/projects/-Users-carterking/memory/feedback-no-gstack-preamble-in-factory-subskills.md)) into `patterns/meta/bp-035-no-factory-preamble.md` when the first factory sub-skill PR surfaces the discipline.
 
 ### Open decisions
@@ -99,6 +102,27 @@ _Current state:_
 - [ ] **BP-034 validator now does filesystem lookups** — `skill-spec-validator`'s BP-034 gap check checks `~/.claude/skills/<name>/` existence when a spec names a `/<skill>` in the reuse section. This means the validator's behavior depends on the ecosystem's installed-skill state, not just the spec content. Keep it this way (per BP-034), but remember it's an external dependency: a factory run in a different environment (e.g., a clean CI runner without gstack installed) will reject specs that would pass in Carter's local setup.
 
 ## Progress log (newest first)
+
+### Stage 7a — skill-phase-designer standalone (2026-04-23, commit pending)
+- **Second factory sub-skill lands.** New sibling skill at `skill-phase-designer/` (peer of `skill-frontmatter/`, `skill-spec-validator/`, etc., per BP-025). Fires when `has_phases: true`; produces a drop-in `## Procedure` section for the target SKILL.md.
+- **SKILL.md:** 10-step procedure. Reads only `phases/02-skill-phase-designer/input.md` per BP-033. Hard-BLOCKERS on two consecutive lint failures + on the `has_phases: false` precondition violation + on a walkthrough with <3 numbered items.
+- **`references/phase-design-rules.md`:** authoritative 6-rule contract. Rule 1 sequential numbering (BP-010). Rule 2 imperative-verb-at-step-start (canonical verb list + control keywords). Rule 3 no weak/passive voice (explicit phrase blocklist). Rules 4–6 conditional on `has_hitl` — hard gates (BP-012), numbered questions or AskUserQuestion (BP-015), ≤4 inline questions (BP-016). BP-011 (announce transitions) and BP-013 (ask-user-first) are prose-guided rather than lint-checked — the LLM is trusted to apply them; the rules file documents them with worked examples.
+- **`scripts/phase_lint.py`:** pure stdlib. Extracts `### Step N — <label>` headings via regex, checks each rule mechanically, returns JSON verdict with fails/warns/info. CLI flags `--hitl` and `--invokes-skills`. Exit codes 0/1/2.
+- **Fixtures** (BP-032, at skill root):
+  - `passing-no-hitl-input.md` — acme-board-memo pack (has_phases + invokes_skills, no HITL).
+  - `passing-with-hitl-input.md` — board-prep pack (has_phases + has_hitl + invokes_skills).
+  - `gaps-input.md` — walkthrough with only 2 numbered items (should BLOCKER at Step 4).
+  - Three matching `expected-*.md` oracles describing acceptance.
+- **Tests (`tests/test_phase_lint.py`):** 23 unittests — one class per rule plus end-to-end good-fixture tests plus CLI integration. All pass in 0.099s.
+- **Live Agent verification** (3 parallel isolated subagents):
+  - no-HITL: produced 9-step Procedure (combined walkthrough steps 8+9 into one "ensure dir + write" step, correctly recognized per the rules contract); lint `passed: true` first attempt, no BLOCKER.
+  - HITL: produced 6-step Procedure with 3 "Do NOT proceed" hard gates placed at every reversibility boundary (not just the minimum 1), AskUserQuestion with explicit options for per-topic confirmation, 1 numbered inline question, announced all 6 phase transitions per BP-011, used BP-013 "ask-user-first" pattern ("prompt the user for talking points first, wait for their response, and only then offer supplementary suggestions"); lint `passed: true` first attempt.
+  - gaps: correctly wrote `BLOCKER: walkthrough has <3 steps; has_phases should not have fired` to notes.md, did NOT produce output.md, explicitly named the driver's classifier as the upstream bug source.
+- **Bugs caught during implementation:**
+  - `_NUMBERED_QUESTION` regex used `\s*` anchors which match newlines, causing `findall` to return matches with adjacent `\n` characters, breaking equality comparison against `splitlines()`. Fixed by switching to per-line `re.match` with `[ \t]*` (horizontal whitespace only).
+  - "Answer" wasn't in the canonical imperative-verb list; added it along with HITL-adjacent verbs (respond, reply, notify, warn, report, surface, escalate, abort, fail, succeed, etc.).
+- **Dogfood:** the sub-skill's own SKILL.md frontmatter lints clean through `skill-frontmatter`'s rules (442 chars, 5 trigger phrases, 0 fails, 0 warns). Full suite: 23 + 22 + 24 = 69 tests across the three active skills, all green.
+- **Unblocks:** Stage 7b (wiring the driver's Phase 4 to invoke `skill-phase-designer` when `has_phases` fires — extends `build_context_pack.py` with a second sub-skill target, mirroring the Stage 6b pattern).
 
 ### Stage 6b — driver Phase 3/4 wiring (2026-04-23, commit `fbbffaa`)
 - **First true end-to-end factory run.** Spec → validator → classifier → context pack → skill-frontmatter subagent → lint-clean frontmatter YAML, no human touch between input and output. Verified live against `acme-board-memo.md`.
