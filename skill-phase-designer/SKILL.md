@@ -119,12 +119,13 @@ Each step gets its own `### Step N — <label>` heading. The label is a short (3
 
 ### Step 10 — Self-lint
 
-Run:
+Run the lint, passing the relevant trait flags extracted from Step 1's pack:
+
 ```bash
-python3 scripts/phase_lint.py output.md --traits <path-to-traits-block>
+python3 scripts/phase_lint.py output.md [--hitl] [--invokes-skills]
 ```
 
-`<path-to-traits-block>` is a small JSON-like file written during Step 1 containing `{"has_hitl": <bool>, "invokes_skills": <bool>}`. The lint returns JSON with `passed`, `fails`, `warns`, `info`.
+Pass `--hitl` iff the pack's `Classified traits` block has `has_hitl: true`. Pass `--invokes-skills` iff it has `invokes_skills: true`. Both flags are boolean toggles; omit either or both when the corresponding trait is false. The lint returns JSON with `passed`, `fails`, `warns`, `info`.
 
 **If `passed: true`:** write `notes.md` with any warnings as informational observations. STOP. Task complete.
 
