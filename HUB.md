@@ -13,8 +13,8 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 ## Status snapshot
 
-- **Current stage:** Stage 4 shipped (2026-04-23). Next: Stage 5 (driver skeleton + `trait_predicates.py`).
-- **Latest commit:** Stage 4 (spec authoring ergonomics) — pending
+- **Current stage:** Stage 4 + 4.1 shipped (2026-04-23). Next: Stage 5 (driver skeleton + `trait_predicates.py`).
+- **Latest commit:** Stage 4.1 cleanup — pending (Stage 4 landed as `7b275d0`)
 - **Stages shipped:** 4 of N (N depends on remaining driver work; likely 7–9)
 - **Sub-skills shipped:** 2 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
@@ -91,17 +91,31 @@ _Current state:_
 
 ## Progress log (newest first)
 
-### Stage 4 — spec authoring ergonomics (2026-04-23, commit pending)
+### Stage 4.1 — contract cleanup: remove Archetype hint (2026-04-23, commit pending)
+- **Scope:** ADR-0001 retired the 15-archetype taxonomy at Stage 3.5. The validator contract still carried a backward-compat optional `Archetype hint` rule, and Stage 4 deferred removal to avoid enlarging that stage. Pass closes the loop.
+- **Removed from validator contract:** `Archetype hint` optional rule in `skill-spec-validator/references/spec-requirements.md`. The `## Archetype hint` header now matches no rule and is silently ignored.
+- **Fixtures + expected outputs updated in lockstep:** `passing-spec.md` and `gaps-spec.md` had their `## Archetype hint` sections removed; `expected-pass.md` + `expected-gaps.md` had `Archetype hint` dropped from `optional_present` and counts adjusted. `expected-gaps.md` now asserts `optional_present: []`; `expected-pass.md` asserts exactly 2 entries.
+- **SKILL.md examples updated:** both the pass-schema and gaps-schema output YAML examples no longer list `Archetype hint`.
+- **Anti-patterns Section 8 rewritten:** was "doesn't fail the validator but you should omit"; now "section was removed from the contract — delete it from any old spec you inherit".
+- **Template HTML comment updated:** removed the parenthetical justifying the omission, since there is no longer a rule to justify omitting against.
+- **Verification:** ran the validator (isolated Agent, standalone mode) against all four specs after the cleanup. All match expected output:
+  - `fixtures/passing-spec.md` → `status: pass`, `optional_present: [Edge cases, Anti-goals]`
+  - `fixtures/gaps-spec.md` → `status: gaps`, 2 missing + 7 ambiguous, `optional_present: []`
+  - `assets/client-spec-template.md` → `status: pass`, `optional_present: [Edge cases, Anti-goals]`
+  - `assets/client-spec-examples/acme-board-memo.md` → `status: pass`, `optional_present: [Edge cases, Anti-goals]`, BP-034 confirmed
+- **Unresolved:** the `Scheduling` and `Hooks needed` optional-section descriptions in `spec-requirements.md` still use the word "archetype" loosely as a classifying noun ("required-ish for cron archetype", "mode-toggle and asymmetric-write-control archetypes"). Left alone intentionally — the terminology is informal there, not a live contract hook.
+
+### Stage 4 — spec authoring ergonomics (2026-04-23, commit `7b275d0`)
 - **Three deliverables landed under `assets/`:**
   - `client-spec-template.md` — blank-but-validator-passing form. Pre-filled with minimum content that satisfies every content rule, so an unmodified copy acts as a self-test fixture against contract regressions. No `## Archetype hint` section per ADR-0001.
   - `client-spec-examples/acme-board-memo.md` — concrete docx-style transformation example (cover page + TOC + section styling + confidential footer). Composes with `/docx`; BP-034 check passes against the real ecosystem skill. Deliberately distinct from the `convert-md-to-docx` fixture inside the validator so the two serve different roles (self-test vs. reference).
-  - `spec-anti-patterns.md` — documentation covering 9 anti-patterns: vague outputs, missing failure handling, non-verbatim trigger phrases, BP-034 sub-skill inflation, passive-voice walkthroughs, subjective success signals, over-long descriptions, obsolete archetype hints, and semantic template-fill-in mistakes. Each entry shows bad/why/fix.
+  - `spec-anti-patterns.md` — documentation covering 9 anti-patterns: vague outputs, missing failure handling, non-verbatim trigger phrases, BP-034 sub-skill inflation, passive-voice walkthroughs, subjective success signals, over-long descriptions, retired archetype hints, and semantic template-fill-in mistakes. Each entry shows bad/why/fix.
 - **Validator runs (isolated Agent subtasks, standalone mode):**
   - `client-spec-template.md` → `status: pass`, 10/10 required, optional: Edge cases + Anti-goals.
   - `acme-board-memo.md` → `status: pass`, 10/10 required, optional: Edge cases + Anti-goals. BP-034 confirmed `/docx` exists at `~/.claude/skills/docx/`.
   - Anti-patterns doc intentionally NOT validated — it is documentation, not a spec.
 - **Unblocks:** Stage 5 (driver skeleton) — clients now have an ergonomic on-ramp to the input gate, reducing the "read the whole contract file" friction that made Stage 3 adoption a pure-expert workflow.
-- **Deferred to Stage 5+ or later:** optional-section cleanup in `spec-requirements.md` (the `Archetype hint` optional rule still exists for backward compat with pre-ADR specs; new specs are told to omit it in the anti-patterns doc instead of forcing a contract change this stage).
+- **Follow-up deferred at the time (resolved in Stage 4.1):** optional-section cleanup in `spec-requirements.md` to remove the `Archetype hint` rule. See Stage 4.1 entry above.
 
 ### Matrix exercise + ADR-0001 (2026-04-23, commit `88c864c`)
 - **20-skill × 5-trait matrix** run against representative skills (docx, pptx, pdf, 411-suite, freeze, guard, email-tracker, skill-creator, autoresearch, skill-compliance, brain-dump, checkpoint, skill-spec-validator, kpi-setter, new-project, retro, plan-ceo-review, office-hours).

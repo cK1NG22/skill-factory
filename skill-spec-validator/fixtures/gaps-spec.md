@@ -26,6 +26,3 @@ The skill is invoked by the user. The new hire's information is collected. The c
 ## Failure modes
 - Bad input.
 - Network errors.
-
-## Archetype hint
-phased-HITL

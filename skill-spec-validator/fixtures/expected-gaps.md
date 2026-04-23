@@ -18,7 +18,7 @@ The gaps fixture is designed to fail in specific, enumerable ways:
 | 8 | Failure modes | ambiguous | Scenarios named but no handling specified |
 | 9 | Existing skills to reuse | missing | No header present at all |
 
-Total: **2 missing_required, 7 ambiguous_required, 0 optional_present failures** (optional `Archetype hint` is present and reported).
+Total: **2 missing_required, 7 ambiguous_required, 0 optional sections present.**
 
 ## output.yaml (authoritative — diff against this)
 
@@ -61,8 +61,7 @@ ambiguous_required:
     line: 27
     issue: "Scenarios named ('Bad input', 'Network errors') but no handling strategy specified for either."
     fix: "Failure modes listed without handling guidance. For each scenario, specify what the skill should DO when it happens."
-optional_present:
-  - Archetype hint
+optional_present: []
 ready_for_classify: false
 ```
 
@@ -88,8 +87,8 @@ The spec has 2 missing required sections and 7 ambiguous required sections. Fix 
 6. **Success signals** (line 22) — Signals are subjective... Fix: ...
 7. **Failure modes** (line 27) — Scenarios named but no handling strategy specified... Fix: ...
 
-## Optional sections present (1)
-- Archetype hint
+## Optional sections present (0)
+_None._
 
 ## Next step
 Address the 9 issues above in the spec file, then re-run `/skill-spec-validator` against the updated path.
@@ -103,7 +102,7 @@ Address the 9 issues above in the spec file, then re-run `/skill-spec-validator`
 - Every `fix` string matches the literal `fix_if_missing` or `fix_if_ambiguous` value from `references/spec-requirements.md` (validator returns them verbatim).
 - Each `ambiguous_required` entry has a `line` number and an `issue` field that names the specific problem.
 - `ready_for_classify` is literally the boolean `false`.
-- `optional_present` contains `Archetype hint`.
+- `optional_present` is the empty list `[]`.
 
 ## Notes on line numbers
 

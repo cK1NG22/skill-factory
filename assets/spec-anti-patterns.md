@@ -187,7 +187,7 @@ Generates a first-day onboarding checklist from a new-hire record and emails it 
 
 ---
 
-## 8. Archetype hint (obsolete per ADR-0001)
+## 8. Archetype hint (retired — do not include)
 
 ### Bad
 ```md
@@ -195,11 +195,11 @@ Generates a first-day onboarding checklist from a new-hire record and emails it 
 phased-HITL
 ```
 
-### Why it does NOT fail the validator — but you should still omit it
-ADR-0001 (2026-04-23) retired the fixed 15-archetype taxonomy in favor of a rule engine over 5 traits (`has_references`, `has_phases`, `has_hitl`, `is_scheduled`, `invokes_skills`). The factory derives traits from the other required sections; it does not read the `Archetype hint` section. Writing "phased-HITL" is noise at best, and at worst conflicts with the rule-engine output and forces the factory to surface a spurious disagreement.
+### Why it fails
+As of ADR-0001 (2026-04-23), the fixed 15-archetype taxonomy was retired in favor of a rule engine over 5 traits (`has_references`, `has_phases`, `has_hitl`, `is_scheduled`, `invokes_skills`). The `## Archetype hint` section was removed from the validator contract entirely. The factory derives traits automatically from the other required sections; it does not read any archetype hint. Including the section produces noise at best, and at worst causes a spec author to think the hint will steer classification when it will not.
 
 ### Fix
-Omit the `## Archetype hint` section entirely. Do not include it in new specs. The optional section still exists in the validator contract for backward compatibility with pre-ADR specs, but every new spec should leave it out.
+Omit the `## Archetype hint` section entirely. Do not include it in new specs. If you are editing an older spec that still has one, delete the section — it will not be read.
 
 ---
 

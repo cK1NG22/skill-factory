@@ -125,8 +125,6 @@ None
   OPTIONAL SECTIONS BELOW THIS LINE
   Each raises classifier confidence but never fails the validator.
   Keep the ones that apply to your skill; delete the rest.
-  (Archetype hint is INTENTIONALLY omitted per ADR-0001 — the factory
-  no longer classifies by named archetype.)
   ==================================================================
 -->
 

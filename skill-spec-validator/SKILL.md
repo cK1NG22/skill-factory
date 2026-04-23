@@ -90,7 +90,6 @@ sections_found:
   - Failure modes
   - Existing skills to reuse
 optional_present:
-  - Archetype hint
   - Edge cases
   - Anti-goals
 ready_for_classify: true
@@ -112,7 +111,7 @@ ambiguous_required:
     issue: "Output location is unspecified. Only format is given."
     fix: "Specify exact output path under ~/Claude/<skill>/ and the file type. Example: 'A .docx file at ~/Claude/<skill>/<input-stem>.docx'."
 optional_present:
-  - Archetype hint
+  - Edge cases
 ready_for_classify: false
 ```
 

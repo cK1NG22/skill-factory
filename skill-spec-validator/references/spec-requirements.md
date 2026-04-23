@@ -76,10 +76,6 @@ Every client-spec.md MUST contain all 10 of these, in any order, each as its own
 
 These RAISE classification confidence but never cause failure. Report present-or-absent only.
 
-### Archetype hint
-- **Match pattern:** header containing `Archetype`
-- **Value added:** spec author's guess at which archetype applies. If classifier disagrees, the factory surfaces the conflict for review.
-
 ### Edge cases
 - **Match pattern:** header containing `Edge case` or `Edge cases`
 - **Value added:** specific pathological inputs the skill must handle gracefully. Drives fixture design.

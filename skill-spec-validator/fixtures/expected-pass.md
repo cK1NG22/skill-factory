@@ -19,7 +19,6 @@ sections_found:
   - Failure modes
   - Existing skills to reuse
 optional_present:
-  - Archetype hint
   - Edge cases
   - Anti-goals
 ready_for_classify: true
@@ -32,7 +31,7 @@ ready_for_classify: true
 
 **STATUS: pass** ✅
 
-All 10 required sections present and satisfy the content contract. Ready to proceed to archetype classification.
+All 10 required sections present and satisfy the content contract. Ready to proceed to trait classification.
 
 ## Required sections (10/10 ✓)
 - ✓ Company
@@ -46,8 +45,7 @@ All 10 required sections present and satisfy the content contract. Ready to proc
 - ✓ Failure modes
 - ✓ Existing skills to reuse
 
-## Optional sections present (3)
-- Archetype hint
+## Optional sections present (2)
 - Edge cases
 - Anti-goals
 
@@ -65,5 +63,5 @@ Empty (no blockers, no anomalies).
 - Every key listed above is present.
 - `status` is exactly the string `pass`.
 - `sections_found` contains exactly 10 entries in the order from `references/spec-requirements.md` for determinism (Company, Skill slug, One-line description, Trigger phrases, Inputs, Outputs, Happy-path walkthrough, Success signals, Failure modes, Existing skills to reuse).
-- `optional_present` contains exactly 3 entries: `Archetype hint`, `Edge cases`, `Anti-goals`. All three match_patterns in `spec-requirements.md` hit against this fixture — the validator should recognize all three.
+- `optional_present` contains exactly 2 entries: `Edge cases`, `Anti-goals`. Both match_patterns in `spec-requirements.md` hit against this fixture — the validator should recognize both.
 - `ready_for_classify` is literally the boolean `true`.

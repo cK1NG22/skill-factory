@@ -48,9 +48,6 @@ A `.docx` file at `~/Claude/convert-md-to-docx/<input-stem>.docx`. On success, p
 ## Existing skills to reuse
 - `/docx` — handles the .docx writer; this skill is a thin adapter layer around it.
 
-## Archetype hint
-transformation
-
 ## Edge cases
 - Markdown files with deeply nested lists (5+ levels) should flatten to Word's max list depth without losing content.
 - Code blocks without a language tag should render as plain monospace (no syntax highlighting).
