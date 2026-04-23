@@ -1,12 +1,38 @@
 # SKILLS — sub-skill catalog
 
-Every skill in this repo has an entry below. Format: purpose, inputs, outputs, enforced patterns, when invoked, standalone usability, status. New sub-skill = PR adding entry here BEFORE authoring the SKILL.md.
+Every skill in this repo has an entry below. Format: purpose, inputs, outputs, enforced patterns, when invoked, standalone usability, status. New sub-skill = PR adding entry here BEFORE authoring the SKILL.md (BP-030).
 
 **Status legend:**
 - 🟢 **Live** — implemented, tested, in production use
 - 🟡 **Migrated** — existed elsewhere, moved into this repo (no behavior change)
 - 🔵 **Planned (Stage N)** — not yet implemented; will land in stage N
 - ⚪ **Deferred** — not in current roadmap, may be added later
+
+---
+
+## Orchestration model (Stage 3.5 — Frame C rule engine)
+
+The factory does NOT branch on named archetypes. Instead, the driver at Phase 4 evaluates **5 trait predicates** against the validated spec and unions sub-skills from whichever traits fire. Patterns are split across three buckets:
+
+- **12 Universal BPs** — every skill gets the sub-skills that enforce these, unconditionally.
+- **11 Conditional BPs** — each tied to ONE of the 5 traits below. Triggered only if the trait fires.
+- **11 Meta BPs** (in `patterns/meta/`) — factory-internal; never applied to client skills.
+
+**The 5 traits (PROVISIONAL until BP × real-skill matrix exercise produces ADR-0001):**
+
+| Trait | Fires when spec… | Brings in |
+|---|---|---|
+| `has_references` | has framework/lookup content >10 lines | BP-007 enforcement (skill-references-scaffolder) |
+| `has_phases` | happy-path walkthrough has ≥3 distinct steps | BP-009, BP-010 (skill-phase-designer) |
+| `has_hitl` | declares user gates/questions mid-flow | BP-011, BP-012, BP-013, BP-015, BP-016 (skill-phase-designer) |
+| `is_scheduled` | has a scheduling section | BP-022 (skill-cron-observability) |
+| `invokes_skills` | names existing `/<skill>` in reuse section (BP-034 gates) | BP-023 (always) + BP-024 (iff also `has_phases`) |
+
+**Optimization runs are CLI flags, NOT traits:** `--polish-autoresearch`, `--polish-triggers`, `--polish-benchmark`. The factory produces `kpi.md`, `trigger-evals.md`, and `test-prompts.md` artifacts universally (cheap); running any optimization loop against them is a separate decision.
+
+**Sub-skill discipline (BP-033):** Every sub-skill reads ONLY its `phases/NN-<name>/input.md`. The driver lists specific BP file paths in `input.md`. Sub-skills never open `patterns/` directly.
+
+**FINDING emission:** Any sub-skill that observes a pattern not currently in `patterns/` may emit a `FINDING: <proposed BP>` line in its `notes.md`. The driver collects these post-pipeline into `findings/session-findings.md` for PR-based promotion.
 
 ---
 
@@ -214,23 +240,33 @@ Every skill in this repo has an entry below. Format: purpose, inputs, outputs, e
 
 ---
 
-## Sub-skill build dependency graph
+## Sub-skill build dependency graph (Stage 3.5 — Frame C aligned)
 
 ```
-Stage 2:  skill-compliance (migrated)
-            ↓ enables compliance checks for everything else
-Stage 3:  skill-spec-validator (template; first end-to-end sub-skill)
-            ↓ enables driver Phase 1
-Stage 5:  skill-factory (driver skeleton + 1 archetype manifest)
-            ↓ enables sub-skill orchestration
-Stage 6:  skill-frontmatter (proves Agent-tool composition with validator)
-            ↓
-Stage 7+: skill-output-contract → skill-references-scaffolder → skill-compliance-gate
-            ↓ at this point: MVP archetype shippable
-Stage M+1+: archetype-specific (skill-phase-designer, skill-knowledge-mapper,
-            skill-kpi-design, skill-signed-handoff, skill-hook-wiring,
-            skill-script-bundler, skill-cron-observability)
-            ↓ each new archetype adds only what it uniquely needs
-Optional: skill-description-triggers, skill-eval-loop, skill-autoresearch-gate
-            ↓ build only when --polish demand surfaces
+Universal (always fire, built first):
+    skill-compliance        [migrated Stage 2]  ← enforces universals + conditionals
+    skill-spec-validator    [Stage 3]           ← Phase 1 gate, BP-034 check
+    skill-frontmatter       [Stage 6 planned]   ← BP-001..005 enforcement
+    skill-references-scaffolder [Stage 7+]      ← BP-006, BP-008, BP-020 enforcement
+    skill-output-contract   [Stage 7+]          ← BP-020 rendering contract
+    skill-kpi-design        [Stage 7+]          ← BP-017 artifact writer (universal per v3)
+    skill-description-triggers [Stage 7+]       ← BP-019 artifact writer (universal per v3)
+
+Conditional (built as first trait exercises each):
+    has_phases       → skill-phase-designer    [adds BP-009, BP-010, BP-011-016 if has_hitl]
+    has_references   → skill-references-scaffolder extensions
+    is_scheduled     → skill-cron-observability
+    invokes_skills   → driver-level Agent spawning; signed handoffs if has_phases too
+
+Optimization-run sub-skills (CLI --polish-* flags, not traits):
+    skill-autoresearch-gate   — gated by --polish-autoresearch + BP-018
+    skill-eval-loop           — gated by --polish-benchmark
+
+Build priority (concrete):
+    Stage 4: spec authoring ergonomics (client-spec-template.md + example + anti-patterns)
+    Stage 5: skill-factory DRIVER skeleton (6-phase spine, universal-always-fire logic)
+    Stage 6: skill-frontmatter (proves Agent-tool composition)
+    Stage 7+: remaining universals, then conditionals as real client-spec exercises them
 ```
+
+The old "15-archetype manifest" model is retired. Sub-skills activate from trait predicates, not archetype names.

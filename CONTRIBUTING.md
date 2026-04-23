@@ -25,14 +25,36 @@ If you get permission errors, your existing `~/.claude/skills/skill-compliance/`
 
 ## The PR discipline (read this before opening a PR)
 
-The factory has two "thinking docs" that govern everything: **`PATTERNS.md`** (best-practices catalog) and **`SKILLS.md`** (sub-skill catalog). Code changes should follow doc changes, not lead them.
+The factory has three "thinking docs" that govern everything: **`PATTERNS.md`** (index of best practices, linking to per-BP files under `patterns/`), **`SKILLS.md`** (sub-skill catalog), and **`HUB.md`** (running progress log, canonical at repo root and symlinked into Carter's memory). Code changes should follow doc changes, not lead them.
 
 ### Adding a new pattern
 
-1. Open a PR adding a `BP-###` entry to `PATTERNS.md` (next free number).
-2. Each entry must answer: rule, source, why, when applicable, enforced by, correct example, incorrect example.
-3. The "Enforced by" field can be `none yet` if no sub-skill enforces it (TODO state).
-4. Get review. Merge. Now you can open the next PR that updates a sub-skill to enforce the pattern.
+As of Stage 3.5, patterns live as individual files under `patterns/` (with factory-internal BPs under `patterns/meta/`). `PATTERNS.md` is an index that links to them.
+
+1. Pick the next free BP number.
+2. Copy the template: `cp patterns/_template.md patterns/bp-<NNN>-<slug>.md` (or `patterns/meta/...` if the BP is factory-internal).
+3. Fill every field (Source, Category, Why, When applicable, Enforced by, Correct, Incorrect).
+4. Add the row to `PATTERNS.md` in the correct category section.
+5. If the BP is Conditional, confirm the trait already exists in the 5-trait set (`has_references`, `has_phases`, `has_hitl`, `is_scheduled`, `invokes_skills`). Proposing a new trait requires justification in the PR.
+6. Open PR titled `patterns: BP-### <short name>`.
+7. The "Enforced by" field can be `none yet` if no sub-skill enforces it (TODO state).
+8. Get review. Merge. Only then can a follow-up PR add the sub-skill code that enforces the pattern (per BP-030).
+
+### Per-stage HUB.md update (required)
+
+Every stage-shipping PR must also update `HUB.md`:
+
+1. Add a new entry at the top of the "Progress log" section (newest first): stage number, date, commit sha placeholder, one-paragraph summary.
+2. Update the "Status snapshot" counters if they changed.
+3. Move completed TODOs from "In progress" to the progress-log entry, or strike them through.
+4. Commit HUB.md changes in the SAME commit as the code. No orphan HUB entries.
+
+### BP-034 discipline for new sub-skill PRs
+
+Per BP-034, sub-skills are ONLY for cross-skill reuse. Before opening a PR that adds a new sub-skill:
+- Identify which existing skills (2+) would reuse the proposed sub-skill.
+- If you can't name 2 — stop. The sub-process belongs in a `references/<topic>.md` file inside the skill that needs it, not in its own directory.
+- `/skill-spec-validator` catches this at Phase 1 for client skills being authored; reviewers catch it at PR time for factory sub-skills being added.
 
 ### Adding a new sub-skill
 

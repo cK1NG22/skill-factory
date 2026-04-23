@@ -58,6 +58,8 @@ For each section in `references/spec-requirements.md`'s **Required** list, in or
    - `issue`: a concrete description of what's specifically wrong in this spec (e.g., "line 12 uses passive voice; can't tell what triggers vs. what executes"). **Write this yourself.** This describes THIS failure in THIS spec.
    - `fix`: the rule's `fix_if_ambiguous` string, **verbatim** from the contract file. **Do not paraphrase.** This is the generic fix that works for any spec failing this rule; the user combines it with the `issue` to understand what to do.
 
+3. **BP-034 cross-skill-reuse check (Section 10 only).** For the "Existing skills to reuse" section, in addition to the content rule, for each `/<skill-name>` named: verify `~/.claude/skills/<skill-name>/` exists. If the named skill does not exist on disk, add to `ambiguous_required` with the rule's `fix_if_bp034_violation` string (verbatim) and an `issue` that names the specific missing skill. Per BP-034, sub-skills are only for cross-skill reuse; naming a nonexistent skill usually means the author intended a reference file, not a sub-skill.
+
 **In short:** `issue` = concrete/custom, `fix` = verbatim/generic. Both required on every `ambiguous_required` entry.
 
 ### Step 4 — Check optional sections
@@ -116,7 +118,7 @@ ready_for_classify: false
 
 ## Self-test against fixtures
 
-The skill ships with two fixtures you can run against to verify it still works:
+The skill ships with three fixtures you can run against to verify it still works:
 
 **Passing fixture:**
 ```
@@ -124,19 +126,26 @@ The skill ships with two fixtures you can run against to verify it still works:
 ```
 Expected: `STATUS: pass` + matches `fixtures/expected-pass.md`.
 
-**Gaps fixture:**
+**Gaps fixture (structural):**
 ```
 /skill-spec-validator ~/Projects/skill-factory/skill-spec-validator/fixtures/gaps-spec.md
 ```
 Expected: `STATUS: gaps` + matches `fixtures/expected-gaps.md`.
 
+**BP-034 fixture (semantic — cross-skill reuse violation):**
+```
+/skill-spec-validator ~/Projects/skill-factory/skill-spec-validator/fixtures/bp034-spec.md
+```
+Expected: `STATUS: gaps` with exactly one `ambiguous_required` entry on the "Existing skills to reuse" section, naming the nonexistent `/acme-generate-email`. Matches `fixtures/expected-bp034.md`.
+
 Diff the actual output against the expected file. Any drift means either the spec contract changed (update expected files) or the validator logic regressed (fix the skill).
 
-## Patterns enforced (PATTERNS.md)
+## Patterns enforced (see `patterns/`)
 
 - **BP-026** — sole human touchpoint = the input spec
 - **BP-027** — input gate before classify
 - **BP-028** — BLOCKER convention for unresolvable ambiguity
+- **BP-034** — sub-skills are for cross-skill reuse only; single-skill sub-processes stay as reference files (see Step 3 sub-check 3 and `patterns/meta/bp-034-subskill-vs-reference.md`)
 
 ## What to do if you're stuck
 

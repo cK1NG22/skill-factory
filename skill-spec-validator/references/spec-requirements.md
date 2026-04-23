@@ -65,8 +65,10 @@ Every client-spec.md MUST contain all 10 of these, in any order, each as its own
 ### 10. Existing skills to reuse
 - **Match pattern:** header containing `Existing skills` or `Reuse`
 - **Content rule:** either an explicit list of skills (each prefixed with `/`) OR the literal text `None` (if the skill is self-contained). An empty section fails.
+- **Additional BP-034 check:** for each `/<skill>` named, confirm the skill exists at `~/.claude/skills/<skill>/` OR is a known ecosystem skill. Per BP-034, sub-skills are only justified when there's cross-skill reuse — if the named skill doesn't exist and the spec appears to propose creating it just for this one skill, that's a violation (should be a reference file, not a sub-skill).
 - **Fix if missing:** "Add an '## Existing skills to reuse' section listing skills this will compose with (each as /<skill-name>), or the single word 'None' if self-contained."
 - **Fix if ambiguous:** "Section is present but empty or lists skills without the / prefix. List as '/docx, /browse' or write 'None'."
+- **Fix if BP-034 violation (named skill doesn't exist):** "The skill '/<name>' named here does not exist at ~/.claude/skills/<name>/. Per BP-034, sub-skills are only for cross-skill reuse — single-skill sub-processes stay as reference files. Either (a) create '/<name>' as a first-class ecosystem skill with its own reuse justification BEFORE building this one, or (b) remove it from this section and add the sub-process as a `references/<topic>.md` file inside this skill instead."
 
 ---
 
