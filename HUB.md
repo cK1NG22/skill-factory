@@ -14,7 +14,7 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 ## Status snapshot
 
 - **Current stage:** Stage 6b shipped (2026-04-23). First true end-to-end factory run: spec → validator → classifier → pack → skill-frontmatter subagent → lint-clean YAML, hands-off. Next: Stage 7 (second sub-skill — `skill-phase-designer` when `has_phases` fires).
-- **Latest commit:** Stage 6b — driver Phase 3/4 wiring — pending (Stage 6a landed as `a529ffb`; Stage 5 as `79110a0`; Stage 5.1 as `99f4996`)
+- **Latest commit:** Stage 6b — driver Phase 3/4 wiring — `fbbffaa` (Stage 6a landed as `a529ffb`; Stage 5 as `79110a0`; Stage 5.1 as `99f4996`)
 - **Stages shipped:** 7 of N (counting 6a + 6b as full stages)
 - **Sub-skills shipped:** 4 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested; `skill-factory` driver skeleton with live Phase 1+2; `skill-frontmatter` standalone with deterministic lint + live Agent verification)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
@@ -100,7 +100,7 @@ _Current state:_
 
 ## Progress log (newest first)
 
-### Stage 6b — driver Phase 3/4 wiring (2026-04-23, commit pending)
+### Stage 6b — driver Phase 3/4 wiring (2026-04-23, commit `fbbffaa`)
 - **First true end-to-end factory run.** Spec → validator → classifier → context pack → skill-frontmatter subagent → lint-clean frontmatter YAML, no human touch between input and output. Verified live against `acme-board-memo.md`.
 - **New script `skill-factory/scripts/build_context_pack.py`:** pure-stdlib Phase 3 pack materializer. Takes `<spec> <classifier.json> <sub-skill-name> <out-dir>` and writes `<out-dir>/input.md` in the exact shape `skill-frontmatter/fixtures/passing-input.md` demonstrates (Task / Spec excerpt / Classified traits / BPs to enforce / Output locations). Narrow sub-skill target support (`skill-frontmatter` only for now — later sub-skills will register their own spec-section sets and BP lists).
 - **Driver SKILL.md extended to Step 5.** Procedure section rewritten: Step 1 input gate, Step 2 classifier-to-JSON with `--output` to work dir, Step 3 pack materialization via `build_context_pack.py`, Step 4 Agent invocation of `skill-frontmatter` + lint verification, Step 5 report + stop. Patterns-enforced list grew: BP-025 (sibling sub-skills), expanded BP-023 (validator + frontmatter invocations), BP-033 promoted from "design contract" to "concrete implementation".
