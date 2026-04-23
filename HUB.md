@@ -13,10 +13,10 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 ## Status snapshot
 
-- **Current stage:** Stage 5 shipped (2026-04-23). Next: Stage 6 (first downstream sub-skill — `skill-frontmatter` — plus Phase 3 context-pack materialization).
-- **Latest commit:** Stage 5 driver + trait classifier — pending (Stage 4.1 landed as `83e3936`)
-- **Stages shipped:** 5 of N (N depends on remaining driver work; likely 7–9)
-- **Sub-skills shipped:** 3 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested; `skill-factory` driver skeleton with live Phase 1+2)
+- **Current stage:** Stage 6a shipped (2026-04-23). Next: Stage 6b (driver's Phase 3 `build_context_pack.py` + Phase 4 procedure updates to actually invoke `skill-frontmatter`).
+- **Latest commit:** Stage 6a skill-frontmatter — pending (Stage 5 landed as `79110a0`; Stage 5.1 landed as `99f4996`)
+- **Stages shipped:** 6 of N (counting 6a as a half-stage; Stage 6b will complete the pair)
+- **Sub-skills shipped:** 4 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested; `skill-factory` driver skeleton with live Phase 1+2; `skill-frontmatter` standalone with deterministic lint + live Agent verification)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
 - **Patterns structure:** 12 Universal / 11 Conditional / 11 Meta — split into `patterns/` directory with per-BP files (Stage 3.5)
 - **Traits model:** Frame C rule engine, 5 provisional traits (`has_references`, `has_phases`, `has_hitl`, `is_scheduled`, `invokes_skills`) — PROVISIONAL until BP × real-skill matrix exercise
@@ -47,14 +47,15 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 _Current state:_
 
-- Stages complete: **5 / N**
-- Sub-skills shipped: **3 / 15** target
+- Stages complete: **6a / N**
+- Sub-skills shipped: **4 / 15** target
 - Patterns: **34** after Stage 3.5
 - Per-client repos: 0
 - End-to-end skills authored hands-off: 0
 - Spec authoring aids shipped: **3 / 3** (template, example, anti-patterns) — all pass `/skill-spec-validator`
-- Driver operational phases: **2 / 6** (Phase 1 input gate + Phase 2 trait classification)
-- Trait classifier tests: **10 / 10 pass**. 4 documented edge cases all covered by dedicated fixtures + tests.
+- Driver operational phases: **2 / 6** (Phase 1 input gate + Phase 2 trait classification). Phase 3 wiring blocked on Stage 6b.
+- Trait classifier tests: **10 / 10 pass**.
+- Frontmatter lint tests: **22 / 22 pass**. Live Agent verification against both fixtures produces expected behavior (passing → lint-clean output.yaml; gaps → BLOCKER at Step 4, no output.yaml).
 
 ## TODOs
 
@@ -79,7 +80,10 @@ _Current state:_
   1. `assets/client-spec-template.md` (no archetype field per ADR-0001; passes validator unmodified as smoke-test fixture)
   2. `assets/client-spec-examples/acme-board-memo.md` (docx-style transformation, composes with `/docx`; passes validator + BP-034)
   3. `assets/spec-anti-patterns.md` (9 documented anti-patterns covering the HUB-specified four plus passive-voice walkthroughs, subjective signals, archetype-hint obsolescence, and semantic template fill-in mistakes)
-- [x] **Stage 5: driver skeleton + `trait_predicates.py`** — shipped 2026-04-23. Driver at `skill-factory/skill-factory/` with Phase 1 (input gate) and Phase 2 (trait classification) live; Phases 3–6 documented in `references/phase-spine.md` and deferred per BP-029. Classifier is `scripts/trait_predicates.py` (pure stdlib), two modes (spec / skill), handles all 4 edge cases, 10/10 tests pass. Real-skill verification against the ADR-0001 matrix produces correct classification for 11/16 spot-checked skills; 4 gstack-family divergences documented as a Stage 5+ follow-up.
+- [x] **Stage 5: driver skeleton + `trait_predicates.py`** — shipped 2026-04-23 (commit `79110a0`). Driver at `skill-factory/skill-factory/` with Phase 1 (input gate) and Phase 2 (trait classification) live; Phases 3–6 documented in `references/phase-spine.md` and deferred per BP-029. Classifier is `scripts/trait_predicates.py` (pure stdlib), two modes (spec / skill), handles all 4 edge cases, 10/10 tests pass. Real-skill verification against the ADR-0001 matrix produces correct classification for 11/16 spot-checked skills; 4 gstack-family divergences scoped out per Stage 5.1.
+- [x] **Stage 5.1: scope gstack family out of classifier** — shipped 2026-04-23 (commit `99f4996`). Docs-only. Scoping captured in `skill-factory/references/trait-edge-cases.md` §Out of scope + saved as `feedback-gstack-out-of-scope-for-factory-classifier.md` memory.
+- [x] **Stage 6a: skill-frontmatter (standalone)** — shipped 2026-04-23. Sub-skill at `skill-frontmatter/` with SKILL.md, `references/frontmatter-rules.md` (5 rules), `scripts/frontmatter_lint.py` (pure stdlib YAML parser + deterministic lint), 2 fixtures (passing + gaps), 22/22 lint tests pass. Live Agent verification against both fixtures confirms end-to-end behavior.
+- [ ] **Stage 6b: driver Phase 3/4 wiring** — build `skill-factory/scripts/build_context_pack.py` to materialize `phases/01-skill-frontmatter/input.md` from the driver's Phase 2 output + validated spec. Extend driver SKILL.md to orchestrate Phase 3 (pack materialization) + Phase 4 (skill-frontmatter invocation). First end-to-end run: driver produces a valid frontmatter YAML for a client spec hands-off.
 - [ ] **Post-Stage-5 review:** promote BP-035 candidate ([feedback-no-gstack-preamble-in-factory-subskills.md](../../../.claude/projects/-Users-carterking/memory/feedback-no-gstack-preamble-in-factory-subskills.md)) into `patterns/meta/bp-035-no-factory-preamble.md` when the first factory sub-skill PR surfaces the discipline.
 
 ### Open decisions
@@ -93,7 +97,28 @@ _Current state:_
 
 ## Progress log (newest first)
 
-### Stage 5 — driver skeleton + trait classifier (2026-04-23, commit pending)
+### Stage 6a — skill-frontmatter standalone (2026-04-23, commit pending)
+- **Sub-skill landed:** new skill at `skill-frontmatter/` (sibling to `skill-compliance/`, `skill-spec-validator/`, `skill-factory/` per BP-025).
+- **SKILL.md:** opens with BP-033 read-only-input.md directive. 10-step procedure: load pack → load rules contract → read listed BPs → construct name → construct description → construct allowed-tools → construct argument-hint → assemble draft → self-lint → write outputs. Forced BLOCKER on two consecutive lint failures per BP-028.
+- **`references/frontmatter-rules.md`:** authoritative contract for 5 rules — name format (BP-003), description length (BP-004), trigger phrases in description (BP-001 + BP-002), allowed-tools declared (BP-005), negative-case clause (BP-002 extension). Each with good/bad examples and a worked composed example.
+- **`scripts/frontmatter_lint.py`:** pure-stdlib deterministic lint. Hand-rolled minimal YAML parser sufficient for frontmatter's flat structure (no external dependency). CLI returns JSON with `passed`, `fails[]`, `warns[]`, `info[]`. Exit codes: 0 pass / 1 fail / 2 bad-usage. Dogfood confirmed: the sub-skill's own SKILL.md frontmatter passes cleanly (0 fails + 0 warns).
+- **Fixtures** at skill root per BP-032:
+  - `passing-input.md` — realistic acme-board-memo input pack; expected to produce a lint-clean output.yaml.
+  - `gaps-input.md` — upstream spec with combined name exceeding 64 chars; expected to BLOCKER at Step 4 without producing output.yaml.
+  - `expected-pass-output.md` + `expected-gaps-output.md` — acceptance-criteria oracles.
+- **Tests** (`tests/test_frontmatter_lint.py`): 22 unit tests — 1 per rule (5 rules × ~4 subcases each) + extract_frontmatter tests + CLI integration. All pass.
+- **Live Agent verification** (not just unit tests): spawned isolated Agents against both fixtures in temp workspaces.
+  - Passing run: Agent produced output.yaml that matches `expected-pass-output.md` essentially verbatim. Lint returned `passed: true` with 7 trigger phrases detected + 394-char description. output.md + notes.md both written.
+  - Gaps run: Agent correctly bailed at Step 4, wrote `BLOCKER: combined name 'verylongcompanyname-…' exceeds 64 char limit (len=120); upstream spec must shorten Skill slug` to notes.md, did NOT produce output.yaml. Proves the strict-stop discipline works under real Agent execution, not just in unit tests.
+- **Bug caught during implementation:** the hand-rolled YAML parser's list mode treated the closing `---` delimiter as a list item `--` when called directly on a raw delimited string (CLI path strips delimiters first via `extract_frontmatter()`, unit tests call `lint()` directly). Fixed by making the parser defensive: break the list loop on any line matching `---`.
+- **Unblocks:** Stage 6b (driver's Phase 3 wiring — `build_context_pack.py`). The sub-skill's input.md contract shape is now pinned; Stage 6b just has to produce that shape from the spec + Phase 2 output.
+
+### Stage 5.1 — scope gstack-family out (2026-04-23, commit `99f4996`)
+- Docs-only pass. Gstack-family skills (`preamble-tier:` tagged) declared out of scope for trait classifier correctness. Rationale: the factory will never produce gstack-style skills, so classifier divergence on them is not a bug.
+- New §Out of scope section added to `skill-factory/references/trait-edge-cases.md`. HUB follow-up marked resolved (not deferred).
+- Memory saved: `feedback-gstack-out-of-scope-for-factory-classifier.md` pointing future sessions at the decision.
+
+### Stage 5 — driver skeleton + trait classifier (2026-04-23, commit `79110a0`)
 - **Driver landed:** new skill at `skill-factory/skill-factory/` (repo-name = skill-name by design — the driver lives as a sibling skill to the sub-skills it orchestrates, per BP-025).
 - **Phase 1 + Phase 2 live.** Phase 1 invokes `/skill-spec-validator`; Phase 2 runs `scripts/trait_predicates.py` on the validated spec. Phases 3–6 are documented in `references/phase-spine.md` as architectural plan but not orchestrated (per BP-029: no scaffolding of code that has no live consumer — the downstream sub-skills arrive in Stage 6+).
 - **Trait classifier implementation (`scripts/trait_predicates.py`):** pure stdlib Python. Two modes — `classify_spec(path)` for authoring, `classify_skill(dir)` for dogfood / regression-check against the ecosystem. 5 predicates; all 4 documented edge cases handled:

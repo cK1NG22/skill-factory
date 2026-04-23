@@ -67,9 +67,9 @@ The factory does NOT branch on named archetypes. Instead, the driver at Phase 4 
 **Inputs:** `phases/01-skill-frontmatter/input.md` (distilled spec excerpt + archetype) — reads `spec.md` and `archetype.json` from session workspace.
 **Outputs:** `output.yaml` (raw frontmatter block, parseable) + `output.md` (frontmatter + rationale) + `notes.md`.
 **Enforces patterns:** BP-001 (trigger phrases), BP-002 (pushy description), BP-003 (name limits), BP-004 (description ≤1024), BP-005 (allowed-tools declared)
-**When invoked:** Driver Phase 4, first sub-skill in every archetype's manifest.
-**Standalone usable:** Yes — `/skill-frontmatter <session-workspace>` or interactive mode that prompts for slug + description seed.
-**Status:** 🔵 Planned (Stage 6 — second sub-skill; proves composition with skill-spec-validator)
+**When invoked:** Driver Phase 4, first sub-skill. Stage 6a ships it standalone; Stage 6b wires the driver's Phase 3 to materialize its input.md pack.
+**Standalone usable:** Yes — `/skill-frontmatter <phases-dir-or-input-md-path>`. Reads `input.md`, produces `output.yaml` + `output.md` + `notes.md` in the same directory.
+**Status:** 🟢 Live standalone (Stage 6a shipped 2026-04-23). 22/22 lint tests pass. Live Agent verification against passing + gaps fixtures produces expected behavior (passing → lint-clean output.yaml with 7 trigger phrases; gaps → BLOCKER at Step 4, no output.yaml). Driver integration pending Stage 6b.
 
 ---
 
