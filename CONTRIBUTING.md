@@ -87,6 +87,16 @@ Per BP-034, sub-skills are ONLY for cross-skill reuse. Before opening a PR that 
 4. Add an end-to-end test spec at `~/Projects/skill-factory/skill-factory/assets/client-spec-examples/<archetype>-example.md`.
 5. Run `/skill-factory <test-company> <example-spec>` and verify the output passes 13/13 compliance.
 
+## Factory conventions (post-Stage-5)
+
+Conventions that have solidified as the factory built its first two sub-skills (`skill-frontmatter` Stage 6a, `skill-phase-designer` Stage 7a). Apply these to every new sub-skill PR.
+
+- **BP-033 — sub-skills read input.md only.** The driver's Phase 3 materializes a `phases/NN-<sub-skill>/input.md` pack containing the spec excerpt, classified traits, and an explicit list of BP file paths. Sub-skills open ONLY that `input.md` plus the BPs it names. They never walk `patterns/` directly. Sub-skill SKILL.md Step 1 must say so.
+- **BP-034 — sub-skills only for cross-skill reuse.** If a sub-process would be used by exactly one parent, it belongs in that parent's `references/<topic>.md`, not in its own directory. `skill-spec-validator` enforces this against client specs at Phase 1 (filesystem-lookup against `~/.claude/skills/<name>/` — so the validator's behavior depends on the ecosystem's installed-skill state; a clean CI runner will reject specs that pass locally). Reviewers enforce this against factory PRs at review time.
+- **Sub-skill build pattern.** Every sub-skill ships with: its own directory at repo root (sibling to other sub-skills, per BP-025); its own `SKILL.md` (180–220 line traffic director); its own `references/<rules>.md` (authoritative rules contract); its own `scripts/<lint>.py` (pure-stdlib deterministic check); its own fixtures at skill root per BP-032 (passing + gaps + expected-output oracles); and its own tests at `tests/test_<lint>.py`.
+- **Stage cadence.** Each sub-skill stage goes: **build → live E2E (isolated Agent against every fixture) → audit sweep (unit tests + `/skill-compliance` + dogfood frontmatter lint on its own SKILL.md) → commit**. No scaffolding ahead of live consumers (BP-029).
+- **Lint is authoritative.** If a lint script and a rules doc disagree, **update the doc to match the lint, not the lint to match the doc**. The rules doc is the human-facing teaching surface; the script is the enforced contract. This keeps drift one-directional.
+
 ## Stage cadence
 
 This repo follows incremental-build discipline (BP-029). Build plan lives at `~/.claude/plans/yeah-let-s-go-ahead-kind-nest.md` (Carter's local plan file). Each "Stage" produces a working, committed, pushable artifact — never a half-built scaffold.

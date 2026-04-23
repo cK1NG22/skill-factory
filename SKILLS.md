@@ -10,29 +10,29 @@ Every skill in this repo has an entry below. Format: purpose, inputs, outputs, e
 
 ---
 
-## Orchestration model (Stage 3.5 — Frame C rule engine)
+## Orchestration model (Frame C rule engine, locked by ADR-0001)
 
-The factory does NOT branch on named archetypes. Instead, the driver at Phase 4 evaluates **5 trait predicates** against the validated spec and unions sub-skills from whichever traits fire. Patterns are split across three buckets:
+The factory does NOT branch on named archetypes. The driver evaluates **5 trait predicates** against the validated spec and unions sub-skills from whichever traits fire. See `HUB.md` for stage history + open decisions; see `patterns/` for per-BP files (12 Universal / 11 Conditional / 11 Meta).
 
-- **12 Universal BPs** — every skill gets the sub-skills that enforce these, unconditionally.
-- **11 Conditional BPs** — each tied to ONE of the 5 traits below. Triggered only if the trait fires.
-- **11 Meta BPs** (in `patterns/meta/`) — factory-internal; never applied to client skills.
+**The 5 traits:**
 
-**The 5 traits (PROVISIONAL until BP × real-skill matrix exercise produces ADR-0001):**
+| Trait | One-line |
+|---|---|
+| `has_references` | spec carries framework/lookup content >10 lines → pulls in references-scaffolder BPs |
+| `has_phases` | happy-path walkthrough has ≥3 distinct steps → pulls in phase-designer BPs |
+| `has_hitl` | spec declares user gates/questions mid-flow → adds hard-gate + question-format BPs |
+| `is_scheduled` | spec has a scheduling section → pulls in cron-observability BPs |
+| `invokes_skills` | spec names existing `/<skill>` (BP-034 gated) → adds Agent-composition + signed-handoff BPs |
 
-| Trait | Fires when spec… | Brings in |
-|---|---|---|
-| `has_references` | has framework/lookup content >10 lines | BP-007 enforcement (skill-references-scaffolder) |
-| `has_phases` | happy-path walkthrough has ≥3 distinct steps | BP-009, BP-010 (skill-phase-designer) |
-| `has_hitl` | declares user gates/questions mid-flow | BP-011, BP-012, BP-013, BP-015, BP-016 (skill-phase-designer) |
-| `is_scheduled` | has a scheduling section | BP-022 (skill-cron-observability) |
-| `invokes_skills` | names existing `/<skill>` in reuse section (BP-034 gates) | BP-023 (always) + BP-024 (iff also `has_phases`) |
+**FINDING emission convention.** The driver and `/skill-compliance` emit one **FINDING** per BP observation, severity-tagged:
 
-**Optimization runs are CLI flags, NOT traits:** `--polish-autoresearch`, `--polish-triggers`, `--polish-benchmark`. The factory produces `kpi.md`, `trigger-evals.md`, and `test-prompts.md` artifacts universally (cheap); running any optimization loop against them is a separate decision.
+- `BLOCKER` — pipeline must halt, sub-skill cannot produce valid output.
+- `WARN` — proceed, but surface in the per-skill report for reviewer attention.
+- `INFO` — advisory; captured in `notes.md` only (e.g., proposed new BP → post-run `findings/session-findings.md` for PR-based promotion).
 
-**Sub-skill discipline (BP-033):** Every sub-skill reads ONLY its `phases/NN-<name>/input.md`. The driver lists specific BP file paths in `input.md`. Sub-skills never open `patterns/` directly.
+Sub-skills write FINDINGs to their `notes.md`. The driver aggregates. For the authoritative BP contracts each FINDING references, see `patterns/bp-NNN-*.md`.
 
-**FINDING emission:** Any sub-skill that observes a pattern not currently in `patterns/` may emit a `FINDING: <proposed BP>` line in its `notes.md`. The driver collects these post-pipeline into `findings/session-findings.md` for PR-based promotion.
+**Sub-skill discipline (BP-033):** every sub-skill reads ONLY its `phases/NN-<name>/input.md`. The driver lists specific BP file paths in that pack — sub-skills never open `patterns/` directly.
 
 ---
 
