@@ -40,12 +40,12 @@ The factory does NOT branch on named archetypes. Instead, the driver at Phase 4 
 
 **Purpose:** Orchestrate the end-to-end authoring of a Claude Code skill from a `client-spec.md`. Under Frame C (ADR-0001) the driver routes: spec → `/skill-spec-validator` → trait classification via `trait_predicates.py` → (Phase 3+ context-pack materialization → sub-skill composition → assembler → compliance gate → per-client repo materialization, deferred to Stage 6+).
 **Inputs:** `<company>` slug + path to `client-spec.md`
-**Outputs (today, Stage 5):** JSON trait map + Phase 1 pass verdict. Driver terminates after Phase 2 — no skill is authored yet.
+**Outputs (today, Stage 6b):** Phase 1 pass verdict + Phase 2 JSON trait map + Phase 3 materialized `input.md` pack + Phase 4 compliant frontmatter `output.yaml` (with rationale + notes). Driver terminates after Phase 4 — the SKILL.md body (procedure, references, assembly, per-client repo) is still Stage 7+ work.
 **Outputs (future, Stage 7+):** New skill landed at `~/Projects/<company>-claude-skills/<company>-<slug>/`, symlinked into `~/.claude/skills/<company>-<slug>`, committed + pushed.
-**Enforces patterns:** BP-023 (Agent-tool composition), BP-026 (sole human touchpoint), BP-027 (input gate before classify), BP-028 (BLOCKER convention), BP-029 (build incrementally), BP-031 (co-locate co-evolving), BP-032 (fixtures at skill root), BP-033 (driver-materialized context packs — design contract), BP-034 (sub-skills only for cross-skill reuse)
+**Enforces patterns:** BP-023 (Agent-tool composition — validator + frontmatter), BP-025 (sibling sub-skills), BP-026 (sole human touchpoint), BP-027 (input gate before classify), BP-028 (BLOCKER convention), BP-029 (build incrementally), BP-031 (co-locate co-evolving), BP-032 (fixtures at skill root), BP-033 (driver-materialized context packs — concrete implementation), BP-034 (sub-skills only for cross-skill reuse)
 **When invoked:** User-initiated. `/skill-factory <company> <spec-path>`.
 **Standalone usable:** Yes — this IS the entry point.
-**Status:** 🟢 Live (Stage 5 shipped 2026-04-23) — Phase 1 + Phase 2 operational. 10/10 unit tests pass. 4 documented classifier edge cases all handled. Phases 3–6 documented in `skill-factory/references/phase-spine.md` but deferred to Stage 6+ per BP-029.
+**Status:** 🟢 Live (Stage 6b shipped 2026-04-23) — Phases 1–4 operational. 24/24 unit tests pass (10 classifier + 14 pack builder). First true end-to-end factory run verified live against acme-board-memo: driver-materialized pack drove `skill-frontmatter` subagent to produce lint-clean `output.yaml` on first attempt (0 fails, 0 warns). Phases 5–6 deferred to Stage 7+ per BP-029.
 
 ---
 
@@ -69,7 +69,7 @@ The factory does NOT branch on named archetypes. Instead, the driver at Phase 4 
 **Enforces patterns:** BP-001 (trigger phrases), BP-002 (pushy description), BP-003 (name limits), BP-004 (description ≤1024), BP-005 (allowed-tools declared)
 **When invoked:** Driver Phase 4, first sub-skill. Stage 6a ships it standalone; Stage 6b wires the driver's Phase 3 to materialize its input.md pack.
 **Standalone usable:** Yes — `/skill-frontmatter <phases-dir-or-input-md-path>`. Reads `input.md`, produces `output.yaml` + `output.md` + `notes.md` in the same directory.
-**Status:** 🟢 Live standalone (Stage 6a shipped 2026-04-23). 22/22 lint tests pass. Live Agent verification against passing + gaps fixtures produces expected behavior (passing → lint-clean output.yaml with 7 trigger phrases; gaps → BLOCKER at Step 4, no output.yaml). Driver integration pending Stage 6b.
+**Status:** 🟢 Live + driver-integrated (Stage 6a shipped 2026-04-23 as `a529ffb`; Stage 6b wired the driver 2026-04-23). 22/22 lint tests pass. Stage 6b's `build_context_pack.py` materializes this sub-skill's `input.md` from the driver's Phase 2 output; first end-to-end factory run against acme-board-memo produced lint-clean `output.yaml` on first try (0 fails, 0 warns, 7 trigger phrases, 394-char description).
 
 ---
 

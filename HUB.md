@@ -13,9 +13,9 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 ## Status snapshot
 
-- **Current stage:** Stage 6a shipped (2026-04-23). Next: Stage 6b (driver's Phase 3 `build_context_pack.py` + Phase 4 procedure updates to actually invoke `skill-frontmatter`).
-- **Latest commit:** Stage 6a skill-frontmatter — pending (Stage 5 landed as `79110a0`; Stage 5.1 landed as `99f4996`)
-- **Stages shipped:** 6 of N (counting 6a as a half-stage; Stage 6b will complete the pair)
+- **Current stage:** Stage 6b shipped (2026-04-23). First true end-to-end factory run: spec → validator → classifier → pack → skill-frontmatter subagent → lint-clean YAML, hands-off. Next: Stage 7 (second sub-skill — `skill-phase-designer` when `has_phases` fires).
+- **Latest commit:** Stage 6b — driver Phase 3/4 wiring — pending (Stage 6a landed as `a529ffb`; Stage 5 as `79110a0`; Stage 5.1 as `99f4996`)
+- **Stages shipped:** 7 of N (counting 6a + 6b as full stages)
 - **Sub-skills shipped:** 4 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested; `skill-factory` driver skeleton with live Phase 1+2; `skill-frontmatter` standalone with deterministic lint + live Agent verification)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
 - **Patterns structure:** 12 Universal / 11 Conditional / 11 Meta — split into `patterns/` directory with per-BP files (Stage 3.5)
@@ -47,15 +47,17 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 _Current state:_
 
-- Stages complete: **6a / N**
+- Stages complete: **6b / N**
 - Sub-skills shipped: **4 / 15** target
 - Patterns: **34** after Stage 3.5
 - Per-client repos: 0
-- End-to-end skills authored hands-off: 0
+- End-to-end skills authored hands-off: **frontmatter slice only** (driver produces compliant frontmatter YAML from a spec; full SKILL.md body still needs `skill-phase-designer` + `skill-references-scaffolder` + `skill-compliance-gate`).
 - Spec authoring aids shipped: **3 / 3** (template, example, anti-patterns) — all pass `/skill-spec-validator`
-- Driver operational phases: **2 / 6** (Phase 1 input gate + Phase 2 trait classification). Phase 3 wiring blocked on Stage 6b.
+- Driver operational phases: **4 / 6** (Phase 1 input gate + Phase 2 trait classification + Phase 3 pack materialization + Phase 4 frontmatter subagent). Phases 5–6 deferred to Stage 7+ (BP-029).
 - Trait classifier tests: **10 / 10 pass**.
-- Frontmatter lint tests: **22 / 22 pass**. Live Agent verification against both fixtures produces expected behavior (passing → lint-clean output.yaml; gaps → BLOCKER at Step 4, no output.yaml).
+- Pack builder tests: **14 / 14 pass** (section parsing, slug extraction, trait-block rendering, acme round-trip, negative cases, CLI).
+- Frontmatter lint tests: **22 / 22 pass**.
+- End-to-end live Agent verification (2026-04-23): driver-materialized pack drove `skill-frontmatter` subagent to produce lint-clean `output.yaml` for acme-board-memo on first attempt — 0 fails, 0 warns, 7 trigger phrases, 394-char description, Rationale + notes.md co-written.
 
 ## TODOs
 
@@ -83,7 +85,8 @@ _Current state:_
 - [x] **Stage 5: driver skeleton + `trait_predicates.py`** — shipped 2026-04-23 (commit `79110a0`). Driver at `skill-factory/skill-factory/` with Phase 1 (input gate) and Phase 2 (trait classification) live; Phases 3–6 documented in `references/phase-spine.md` and deferred per BP-029. Classifier is `scripts/trait_predicates.py` (pure stdlib), two modes (spec / skill), handles all 4 edge cases, 10/10 tests pass. Real-skill verification against the ADR-0001 matrix produces correct classification for 11/16 spot-checked skills; 4 gstack-family divergences scoped out per Stage 5.1.
 - [x] **Stage 5.1: scope gstack family out of classifier** — shipped 2026-04-23 (commit `99f4996`). Docs-only. Scoping captured in `skill-factory/references/trait-edge-cases.md` §Out of scope + saved as `feedback-gstack-out-of-scope-for-factory-classifier.md` memory.
 - [x] **Stage 6a: skill-frontmatter (standalone)** — shipped 2026-04-23. Sub-skill at `skill-frontmatter/` with SKILL.md, `references/frontmatter-rules.md` (5 rules), `scripts/frontmatter_lint.py` (pure stdlib YAML parser + deterministic lint), 2 fixtures (passing + gaps), 22/22 lint tests pass. Live Agent verification against both fixtures confirms end-to-end behavior.
-- [ ] **Stage 6b: driver Phase 3/4 wiring** — build `skill-factory/scripts/build_context_pack.py` to materialize `phases/01-skill-frontmatter/input.md` from the driver's Phase 2 output + validated spec. Extend driver SKILL.md to orchestrate Phase 3 (pack materialization) + Phase 4 (skill-frontmatter invocation). First end-to-end run: driver produces a valid frontmatter YAML for a client spec hands-off.
+- [x] **Stage 6b: driver Phase 3/4 wiring** — shipped 2026-04-23. `skill-factory/scripts/build_context_pack.py` (pure stdlib, 14 unit tests) materializes `phases/01-skill-frontmatter/input.md`. Driver SKILL.md Step 3 runs the pack builder, Step 4 spawns `skill-frontmatter` as an isolated Agent subtask. Live end-to-end on acme-board-memo spec produced lint-clean `output.yaml` on first attempt (0 fails, 0 warns). First true end-to-end factory run.
+- [ ] **Stage 7: `skill-phase-designer`** — next sub-skill. Fires when `has_phases: true`. Designs the driver-materialized pack contract for phased-walkthrough SKILL.md body (the "Procedure" section). Should follow the 6a pattern: standalone sub-skill first (tests + fixtures + live Agent verification), then 7b wires Phase 4 to call it when trait fires.
 - [ ] **Post-Stage-5 review:** promote BP-035 candidate ([feedback-no-gstack-preamble-in-factory-subskills.md](../../../.claude/projects/-Users-carterking/memory/feedback-no-gstack-preamble-in-factory-subskills.md)) into `patterns/meta/bp-035-no-factory-preamble.md` when the first factory sub-skill PR surfaces the discipline.
 
 ### Open decisions
@@ -97,7 +100,16 @@ _Current state:_
 
 ## Progress log (newest first)
 
-### Stage 6a — skill-frontmatter standalone (2026-04-23, commit pending)
+### Stage 6b — driver Phase 3/4 wiring (2026-04-23, commit pending)
+- **First true end-to-end factory run.** Spec → validator → classifier → context pack → skill-frontmatter subagent → lint-clean frontmatter YAML, no human touch between input and output. Verified live against `acme-board-memo.md`.
+- **New script `skill-factory/scripts/build_context_pack.py`:** pure-stdlib Phase 3 pack materializer. Takes `<spec> <classifier.json> <sub-skill-name> <out-dir>` and writes `<out-dir>/input.md` in the exact shape `skill-frontmatter/fixtures/passing-input.md` demonstrates (Task / Spec excerpt / Classified traits / BPs to enforce / Output locations). Narrow sub-skill target support (`skill-frontmatter` only for now — later sub-skills will register their own spec-section sets and BP lists).
+- **Driver SKILL.md extended to Step 5.** Procedure section rewritten: Step 1 input gate, Step 2 classifier-to-JSON with `--output` to work dir, Step 3 pack materialization via `build_context_pack.py`, Step 4 Agent invocation of `skill-frontmatter` + lint verification, Step 5 report + stop. Patterns-enforced list grew: BP-025 (sibling sub-skills), expanded BP-023 (validator + frontmatter invocations), BP-033 promoted from "design contract" to "concrete implementation".
+- **Tests (`tests/test_build_context_pack.py`):** 14 unit tests — 3 for section parser, 4 for reuse-block slug extractor, 3 for trait-block renderer, 1 acme round-trip round-trip through classifier + builder, 2 negative cases (unsupported sub-skill / missing required section), 2 CLI integration. All pass.
+- **Full suite:** 24/24 pass in the driver's test dir (10 classifier + 14 pack builder) and 22/22 still pass in `skill-frontmatter/` (no cross-skill regression). Driver's own SKILL.md lints clean through its own sub-skill's rules (dogfood).
+- **Live Agent E2E test:** isolated Agent spawned with the driver-materialized pack path produced lint-clean output.yaml on first try — 7 trigger phrases, 394-char description, `Bash` correctly inferred from the walkthrough's mkdir/print shell steps, full `## Rationale` section co-written with per-field reasoning. The subagent read ONLY the input.md + the 5 BP files it named, demonstrating BP-033's sandboxing in running code.
+- **Unblocks:** Stage 7 (`skill-phase-designer` as the next sub-skill). The driver's orchestration shape (Step 3 pack materialization + Step 4 Agent subagent) is now a proven pattern that new sub-skills just plug into by adding a stanza to `_SUB_SKILL_BPS`, `_SUB_SKILL_SECTIONS`, `_SUB_SKILL_OUTPUT_BLURB`, and `_SUB_SKILL_TASK` in `build_context_pack.py`.
+
+### Stage 6a — skill-frontmatter standalone (2026-04-23, commit `a529ffb`)
 - **Sub-skill landed:** new skill at `skill-frontmatter/` (sibling to `skill-compliance/`, `skill-spec-validator/`, `skill-factory/` per BP-025).
 - **SKILL.md:** opens with BP-033 read-only-input.md directive. 10-step procedure: load pack → load rules contract → read listed BPs → construct name → construct description → construct allowed-tools → construct argument-hint → assemble draft → self-lint → write outputs. Forced BLOCKER on two consecutive lint failures per BP-028.
 - **`references/frontmatter-rules.md`:** authoritative contract for 5 rules — name format (BP-003), description length (BP-004), trigger phrases in description (BP-001 + BP-002), allowed-tools declared (BP-005), negative-case clause (BP-002 extension). Each with good/bad examples and a worked composed example.
