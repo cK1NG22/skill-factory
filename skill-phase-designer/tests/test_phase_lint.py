@@ -296,6 +296,153 @@ class TestRule6InlineQuestionCount(unittest.TestCase):
         self.assertEqual(warns_about_overflow, [], result.warns)
 
 
+# ---------- Regression tests from independent review ----------
+
+
+class TestInlineCodeFirstWord(unittest.TestCase):
+    """Regression: a step body opening with a backtick-wrapped token used to
+    return '' from _first_word, producing a misleading 'empty body' error."""
+
+    def test_leading_inline_code_surfaces_real_verb(self):
+        self.assertEqual(pl._first_word("`/docx` renders the packet."), "renders")
+
+    def test_leading_bare_slash_skill_surfaces_real_verb(self):
+        self.assertEqual(pl._first_word("/docx renders the packet."), "renders")
+
+    def test_leading_imperative_after_inline_code_accepted(self):
+        text = textwrap.dedent("""
+            ### Step 1 — Invoke the skill
+            `/docx` is invoked to render the packet.
+
+            ### Step 2 — Write output
+            Write the output.
+        """).strip()
+        # Rule 2 should report "is" (non-imperative, passive) — not empty body
+        result = pl.lint(text)
+        self.assertFalse(result.passed)
+        self.assertFalse(any("empty body" in f for f in result.fails), result.fails)
+
+
+class TestRule5MidLineQuestion(unittest.TestCase):
+    """Regression: Rule 5 used to only fire on lines ending with '?'. A mid-line
+    question was silently missed."""
+
+    def test_midline_question_fails(self):
+        text = textwrap.dedent("""
+            ### Step 1 — Ask
+            Do you know the format? Then proceed.
+
+            ### Step 2 — Write
+            Write the result.
+
+            Do NOT proceed until answered.
+        """).strip()
+        result = pl.lint(text, has_hitl=True)
+        self.assertTrue(any("not numbered" in f for f in result.fails), result.fails)
+
+
+class TestRule6ContractionApostrophes(unittest.TestCase):
+    """Regression: the apostrophe-stripping regex used to span contractions
+    like `don't … it's`, erasing any '?' in between from the count."""
+
+    def test_contractions_do_not_eat_questions(self):
+        text = textwrap.dedent("""
+            ### Step 1 — Ask
+            Answer:
+            1. Don't we need the format?
+            2. What is the deadline?
+            3. Isn't the target audience clear?
+            4. What is the budget?
+            5. How many reviewers?
+
+            ### Step 2 — Write
+            Write.
+
+            Do NOT proceed until answered.
+        """).strip()
+        result = pl.lint(text, has_hitl=True)
+        # 5 inline questions with contractions: must surface a Rule 6 warning
+        self.assertTrue(
+            any("scoping-questions.md" in w for w in result.warns),
+            f"warns={result.warns}; fails={result.fails}",
+        )
+
+
+class TestEdgeCases(unittest.TestCase):
+    def test_empty_procedure_fails(self):
+        result = pl.lint("## Procedure\n")
+        self.assertFalse(result.passed)
+        self.assertTrue(any("no '### Step" in f for f in result.fails))
+
+    def test_duplicate_step_numbers_fails(self):
+        text = textwrap.dedent("""
+            ### Step 1 — First
+            Read.
+
+            ### Step 1 — Duplicate
+            Write.
+
+            ### Step 2 — Done
+            Exit.
+        """).strip()
+        result = pl.lint(text)
+        self.assertFalse(result.passed)
+        self.assertTrue(any("sequential" in f or "expected" in f for f in result.fails))
+
+    def test_unicode_step_label_passes(self):
+        text = textwrap.dedent("""
+            ## Procedure
+
+            ### Step 1 — Lädt Eingabe
+            Read the input file.
+
+            ### Step 2 — Schreibt Ausgabe
+            Write the output file.
+
+            ### Step 3 — Fertig
+            Print the path.
+        """).strip()
+        result = pl.lint(text)
+        self.assertTrue(result.passed, result.fails)
+
+    def test_missing_procedure_header_warns_not_fails(self):
+        # Bare step headings without the section header: still passes rules,
+        # but emits a warning so the author knows to add the section header.
+        text = textwrap.dedent("""
+            ### Step 1 — Read
+            Read the input.
+
+            ### Step 2 — Write
+            Write the output.
+
+            ### Step 3 — Done
+            Print the path.
+        """).strip()
+        result = pl.lint(text)
+        self.assertTrue(result.passed, result.fails)
+        self.assertTrue(any("## Procedure" in w for w in result.warns), result.warns)
+
+    def test_hyphen_separator_fails_with_targeted_message(self):
+        text = textwrap.dedent("""
+            ## Procedure
+
+            ### Step 1 - Read
+            Read the input.
+
+            ### Step 2 - Write
+            Write the output.
+
+            ### Step 3 - Done
+            Print.
+        """).strip()
+        result = pl.lint(text)
+        self.assertFalse(result.passed)
+        self.assertTrue(
+            any("em-dash" in f or "U+2014" in f for f in result.fails),
+            result.fails,
+        )
+
+
 # ---------- End-to-end on good fixtures ----------
 
 

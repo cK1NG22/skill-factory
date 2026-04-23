@@ -137,11 +137,23 @@ Pass `--hitl` iff the pack's `Classified traits` block has `has_hitl: true`. Pas
 
 The skill ships with three fixtures under `fixtures/`:
 
-- `passing-no-hitl-input.md` — acme-board-memo-style pack (has_phases + invokes_skills, no HITL).
-- `passing-with-hitl-input.md` — board-prep-style pack (has_phases + has_hitl + invokes_skills).
-- `gaps-input.md` — walkthrough has only 2 numbered items; expected to BLOCKER at Step 4.
+**Passing (no HITL):**
+```
+/skill-phase-designer fixtures/passing-no-hitl-input.md
+```
+Expected: `output.md` is a clean Procedure section matching `fixtures/expected-passing-no-hitl.md`; lint (no flags) returns `passed: true`.
 
-Each has a matching `expected-*.md` oracle describing acceptance.
+**Passing (HITL):**
+```
+/skill-phase-designer fixtures/passing-with-hitl-input.md
+```
+Expected: `output.md` includes at least one "Do NOT proceed" gate and numbered-or-AskUserQuestion-wrapped questions; lint with `--hitl --invokes-skills` returns `passed: true`.
+
+**Gaps:**
+```
+/skill-phase-designer fixtures/gaps-input.md
+```
+Expected: `notes.md` contains a `BLOCKER:` line; no `output.md` (or `output.md` without a valid Procedure section). Matches `fixtures/expected-gaps.md`.
 
 ## Patterns enforced
 

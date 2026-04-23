@@ -38,7 +38,7 @@ A `.docx` file at `~/Claude/board-prep/<meeting-date>-packet.docx`.
 
 ## Classified traits
 ```
-has_references: false
+has_references: true
 has_phases: true
 has_hitl: true
 is_scheduled: false

@@ -16,6 +16,8 @@ Each step in the Procedure section must begin with a `### Step N — <label>` he
 
 **Why:** Out-of-order or gapped numbering signals either an edit mid-revision or a conceptual bug. A well-formed Procedure section reads top-to-bottom with no surprises.
 
+**Heading format:** `### Step N — <label>` with an em-dash (U+2014 `—`) between the number and the label. Using an ASCII hyphen (`-`) or en-dash (`–`) fails the lint with a targeted error rather than the generic "no headings found". The `## Procedure` section header above the steps is recommended; absence emits a warning, not a failure.
+
 **Correct:**
 ```markdown
 ### Step 1 — Load the input
@@ -83,7 +85,7 @@ Weak voice hedges behavior. In a SKILL.md Procedure, the agent needs an instruct
 
 When `has_hitl` fires, the Procedure must contain at least one explicit "Do NOT proceed until …" or "Do NOT proceed to <step> until …" gate. The gate:
 
-- Uses the literal phrase "Do NOT proceed" (case: "NOT" in caps per factory convention).
+- Uses the literal phrase "Do NOT proceed" with title-case `Do` and capitalized `NOT` per factory convention. The lint matches `\bDo\s+NOT\s+proceed\b` exactly — lowercase `do not proceed` or all-caps `DO NOT PROCEED` does not count.
 - Names the precondition that must be satisfied.
 - Sits immediately before the irreversible or expensive step it guards.
 
@@ -136,6 +138,8 @@ Count every `?` in the Procedure text (excluding `?` inside fenced code blocks o
 **Correct:** ≤4 inline questions, each a single short sentence.
 
 **Incorrect:** 7 questions inlined with multi-sentence explanations.
+
+**Counting method:** The lint strips fenced code blocks and double-quoted substrings before counting `?`. Apostrophes and contractions (`don't`, `it's`) do not affect the count. A mid-line `?` counts the same as a line-terminal one — `Do you know the format? Then proceed.` counts as one question.
 
 ---
 

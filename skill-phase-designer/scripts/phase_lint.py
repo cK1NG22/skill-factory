@@ -118,8 +118,22 @@ def _extract_steps(text: str) -> list[tuple[int, str, str]]:
 
 
 def _first_word(text: str) -> str:
-    # Skip leading markdown artifacts (list markers, bold)
+    """First English word of a step body, skipping leading markdown artifacts,
+    inline-code spans, and slash-prefixed skill tokens. The goal is to surface
+    the real action verb for Rule 2 error messages — a body opening with
+    `` `/docx` renders the packet `` should report "renders" (non-imperative),
+    not "empty body"."""
     stripped = re.sub(r"^[\s\*\-\_\>]+", "", text).strip()
+    # Skip leading inline-code span(s) like `foo` or `/docx`
+    while True:
+        m = re.match(r"`[^`\n]*`\s*", stripped)
+        if not m:
+            break
+        stripped = stripped[m.end():]
+    # Skip a bare /slash-skill token that may appear without backticks
+    m = re.match(r"/[a-z][a-z0-9-]*\s*", stripped)
+    if m:
+        stripped = stripped[m.end():]
     m = re.match(r"[A-Za-z]+", stripped)
     return m.group(0) if m else ""
 
@@ -135,6 +149,24 @@ def lint(
     scannable = _strip_code_fences(text)
 
     # Rule 1 — Steps are numbered and sequential
+    # Soft check: warn if the '## Procedure' section header is absent. The
+    # target SKILL.md needs it; without it, step headings live in an undeclared
+    # section.
+    if not re.search(r"^##\s+Procedure\s*$", scannable, re.MULTILINE):
+        warns.append(
+            "no '## Procedure' section header found; steps should live "
+            "under a '## Procedure' section per factory convention"
+        )
+    # Also surface the "looks like a step heading but uses wrong separator"
+    # case — easier to fix than a bare "no headings found".
+    loose_step = re.search(
+        r"^###\s+Step\s+\d+\s+[\-–]\s", scannable, re.MULTILINE
+    )
+    if loose_step and not _STEP_HEADING.search(scannable):
+        fails.append(
+            "step headings use '-' or '–'; factory convention requires '—' "
+            "(em-dash, U+2014) between step number and label"
+        )
     steps = _extract_steps(scannable)
     if not steps:
         fails.append("no '### Step N — <label>' headings found")
@@ -183,10 +215,13 @@ def lint(
             info.append(f"hard gates present: {gates}")
 
     # Rule 5 — Questions are numbered or use AskUserQuestion (only if has_hitl)
+    # A "question line" is any line containing '?' anywhere (not just at the
+    # end) — "Do you know the format? Then proceed." contains a user-facing
+    # question even though the line doesn't terminate with '?'.
     if has_hitl:
         all_lines = scannable.splitlines()
         for idx, ln in enumerate(all_lines):
-            if not ln.strip().endswith("?"):
+            if "?" not in ln:
                 continue
             if _NUMBERED_QUESTION_LINE.match(ln):
                 continue
@@ -200,10 +235,12 @@ def lint(
 
     # Rule 6 — At most 4 inline questions (only if has_hitl)
     if has_hitl:
-        # Count '?' outside quoted strings and code. Crude: strip backtick spans.
+        # Count '?' outside quoted strings and code. Strip backtick spans and
+        # double-quoted strings. Single-quote stripping was removed: it ate
+        # prose between contractions (e.g., `don't … it's` spans matched as
+        # quoted string and dropped `?` characters from the count).
         prose = re.sub(r"`[^`\n]*`", "", scannable)
         prose = re.sub(r'"[^"\n]*"', "", prose)
-        prose = re.sub(r"'[^'\n]*'", "", prose)
         q_count = prose.count("?")
         if q_count > 4:
             warns.append(

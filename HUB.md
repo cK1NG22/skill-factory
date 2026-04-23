@@ -92,6 +92,10 @@ _Current state:_
 - [ ] **Stage 8+: remaining sub-skills** — `skill-references-scaffolder` (when `has_references` fires; BP-007, BP-008, BP-009), `skill-compliance-gate` (Phase 5 universal), `skill-cron-observability` (when `is_scheduled` fires; BP-022), `skill-signed-handoff` (when `has_phases` ∧ `invokes_skills`; BP-024). Per BP-029 ship one at a time.
 - [ ] **Post-Stage-5 review:** promote BP-035 candidate ([feedback-no-gstack-preamble-in-factory-subskills.md](../../../.claude/projects/-Users-carterking/memory/feedback-no-gstack-preamble-in-factory-subskills.md)) into `patterns/meta/bp-035-no-factory-preamble.md` when the first factory sub-skill PR surfaces the discipline.
 
+### Deferred cleanups (pre-existing, not stage-specific)
+
+- [ ] **Fixture BP paths are hardcoded to `/Users/carterking/...`.** Affects `skill-frontmatter/fixtures/passing-input.md` (line 55+), `skill-frontmatter/fixtures/gaps-input.md` (line 40+), and `skill-phase-designer/fixtures/*.md` (trait & BP sections). A second user cloning the repo can't run the fixtures directly because the BP paths don't resolve. Options: use a `{{REPO_ROOT}}` placeholder that tests / SKILL.md self-test substitutes, OR use repo-relative paths (requires sub-skill procedure to resolve them against `__file__`). Not urgent — the fixtures are used end-to-end via the live Agent verification path where the driver materializes paths dynamically. But flag for any factory-external user onboarding.
+
 ### Open decisions
 
 - [x] ~~First archetype to ship MVP~~ — obviated by Frame C (ADR-0001)
