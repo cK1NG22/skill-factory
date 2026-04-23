@@ -38,13 +38,14 @@ The factory does NOT branch on named archetypes. Instead, the driver at Phase 4 
 
 ## skill-factory (the driver)
 
-**Purpose:** Orchestrate the end-to-end authoring of a Claude Code skill from a `client-spec.md`. Routes spec → validator → archetype classifier → archetype manifest → sequential sub-skill invocations → assembler → compliance gate → per-client repo materialization.
+**Purpose:** Orchestrate the end-to-end authoring of a Claude Code skill from a `client-spec.md`. Under Frame C (ADR-0001) the driver routes: spec → `/skill-spec-validator` → trait classification via `trait_predicates.py` → (Phase 3+ context-pack materialization → sub-skill composition → assembler → compliance gate → per-client repo materialization, deferred to Stage 6+).
 **Inputs:** `<company>` slug + path to `client-spec.md`
-**Outputs:** New skill landed at `~/Projects/<company>-claude-skills/<company>-<slug>/`, symlinked into `~/.claude/skills/<company>-<slug>`, committed + pushed.
-**Enforces patterns:** BP-023 (Agent-tool composition), BP-026 (sole human touchpoint), BP-027 (input gate before classify), BP-028 (BLOCKER convention), BP-031 (co-locate co-evolving)
+**Outputs (today, Stage 5):** JSON trait map + Phase 1 pass verdict. Driver terminates after Phase 2 — no skill is authored yet.
+**Outputs (future, Stage 7+):** New skill landed at `~/Projects/<company>-claude-skills/<company>-<slug>/`, symlinked into `~/.claude/skills/<company>-<slug>`, committed + pushed.
+**Enforces patterns:** BP-023 (Agent-tool composition), BP-026 (sole human touchpoint), BP-027 (input gate before classify), BP-028 (BLOCKER convention), BP-029 (build incrementally), BP-031 (co-locate co-evolving), BP-032 (fixtures at skill root), BP-033 (driver-materialized context packs — design contract), BP-034 (sub-skills only for cross-skill reuse)
 **When invoked:** User-initiated. `/skill-factory <company> <spec-path>`.
 **Standalone usable:** Yes — this IS the entry point.
-**Status:** 🔵 Planned (Stage 5)
+**Status:** 🟢 Live (Stage 5 shipped 2026-04-23) — Phase 1 + Phase 2 operational. 10/10 unit tests pass. 4 documented classifier edge cases all handled. Phases 3–6 documented in `skill-factory/references/phase-spine.md` but deferred to Stage 6+ per BP-029.
 
 ---
 

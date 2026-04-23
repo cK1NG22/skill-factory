@@ -13,10 +13,10 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 ## Status snapshot
 
-- **Current stage:** Stage 4 + 4.1 shipped (2026-04-23). Next: Stage 5 (driver skeleton + `trait_predicates.py`).
-- **Latest commit:** Stage 4.1 cleanup — pending (Stage 4 landed as `7b275d0`)
-- **Stages shipped:** 4 of N (N depends on remaining driver work; likely 7–9)
-- **Sub-skills shipped:** 2 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested)
+- **Current stage:** Stage 5 shipped (2026-04-23). Next: Stage 6 (first downstream sub-skill — `skill-frontmatter` — plus Phase 3 context-pack materialization).
+- **Latest commit:** Stage 5 driver + trait classifier — pending (Stage 4.1 landed as `83e3936`)
+- **Stages shipped:** 5 of N (N depends on remaining driver work; likely 7–9)
+- **Sub-skills shipped:** 3 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested; `skill-factory` driver skeleton with live Phase 1+2)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
 - **Patterns structure:** 12 Universal / 11 Conditional / 11 Meta — split into `patterns/` directory with per-BP files (Stage 3.5)
 - **Traits model:** Frame C rule engine, 5 provisional traits (`has_references`, `has_phases`, `has_hitl`, `is_scheduled`, `invokes_skills`) — PROVISIONAL until BP × real-skill matrix exercise
@@ -47,12 +47,14 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 _Current state:_
 
-- Stages complete: **4 / N**
-- Sub-skills shipped: **2 / 15** target (~6 expected per first archetype)
+- Stages complete: **5 / N**
+- Sub-skills shipped: **3 / 15** target
 - Patterns: **34** after Stage 3.5
 - Per-client repos: 0
 - End-to-end skills authored hands-off: 0
 - Spec authoring aids shipped: **3 / 3** (template, example, anti-patterns) — all pass `/skill-spec-validator`
+- Driver operational phases: **2 / 6** (Phase 1 input gate + Phase 2 trait classification)
+- Trait classifier tests: **10 / 10 pass**. 4 documented edge cases all covered by dedicated fixtures + tests.
 
 ## TODOs
 
@@ -77,7 +79,7 @@ _Current state:_
   1. `assets/client-spec-template.md` (no archetype field per ADR-0001; passes validator unmodified as smoke-test fixture)
   2. `assets/client-spec-examples/acme-board-memo.md` (docx-style transformation, composes with `/docx`; passes validator + BP-034)
   3. `assets/spec-anti-patterns.md` (9 documented anti-patterns covering the HUB-specified four plus passive-voice walkthroughs, subjective signals, archetype-hint obsolescence, and semantic template fill-in mistakes)
-- [ ] **Stage 5: driver skeleton + `trait_predicates.py`** — 5-predicate Phase 4 loop. Implementation must handle the 4 classifier edge cases captured in [feedback-trait-classifier-edge-cases.md](../../../.claude/projects/-Users-carterking/memory/feedback-trait-classifier-edge-cases.md): sibling .md as refs, alt phase naming, gstack preamble skip, conservative invokes detection with paired-family toggle exclusion.
+- [x] **Stage 5: driver skeleton + `trait_predicates.py`** — shipped 2026-04-23. Driver at `skill-factory/skill-factory/` with Phase 1 (input gate) and Phase 2 (trait classification) live; Phases 3–6 documented in `references/phase-spine.md` and deferred per BP-029. Classifier is `scripts/trait_predicates.py` (pure stdlib), two modes (spec / skill), handles all 4 edge cases, 10/10 tests pass. Real-skill verification against the ADR-0001 matrix produces correct classification for 11/16 spot-checked skills; 4 gstack-family divergences documented as a Stage 5+ follow-up.
 - [ ] **Post-Stage-5 review:** promote BP-035 candidate ([feedback-no-gstack-preamble-in-factory-subskills.md](../../../.claude/projects/-Users-carterking/memory/feedback-no-gstack-preamble-in-factory-subskills.md)) into `patterns/meta/bp-035-no-factory-preamble.md` when the first factory sub-skill PR surfaces the discipline.
 
 ### Open decisions
@@ -91,7 +93,22 @@ _Current state:_
 
 ## Progress log (newest first)
 
-### Stage 4.1 — contract cleanup: remove Archetype hint (2026-04-23, commit pending)
+### Stage 5 — driver skeleton + trait classifier (2026-04-23, commit pending)
+- **Driver landed:** new skill at `skill-factory/skill-factory/` (repo-name = skill-name by design — the driver lives as a sibling skill to the sub-skills it orchestrates, per BP-025).
+- **Phase 1 + Phase 2 live.** Phase 1 invokes `/skill-spec-validator`; Phase 2 runs `scripts/trait_predicates.py` on the validated spec. Phases 3–6 are documented in `references/phase-spine.md` as architectural plan but not orchestrated (per BP-029: no scaffolding of code that has no live consumer — the downstream sub-skills arrive in Stage 6+).
+- **Trait classifier implementation (`scripts/trait_predicates.py`):** pure stdlib Python. Two modes — `classify_spec(path)` for authoring, `classify_skill(dir)` for dogfood / regression-check against the ecosystem. 5 predicates; all 4 documented edge cases handled:
+  1. Sibling `.md` files at skill root fire `has_references`.
+  2. `## Workflow` / `## Procedure` / numbered `## N. Foo` sections fire `has_phases`.
+  3. Gstack-style bash preamble stripped before `invokes_skills` scan.
+  4. Paired-family blocklist (`freeze`/`unfreeze`/`careful`/`guard`/`unlock`) excluded from `invokes_skills`.
+- **Tests:** `tests/test_trait_predicates.py` — 10 unit tests using pure-stdlib `unittest`, all pass. One test per edge case, one per clean spec fixture, plus a CLI integration test and a BP-034 ecosystem-gate negative test.
+- **Fixtures:** `fixtures/` at skill root per BP-032. 3 spec fixtures (clean transformation, phased-HITL-with-reuse, scheduled-report) and 4 skill fixtures exercising each edge case, plus `expected-traits.md` as the oracle.
+- **Real-skill verification:** classifier run against 16 real ecosystem skills. 11 match ADR-0001 matrix row-for-row (docx, pptx, pdf, freeze, guard, email-tracker, brain-dump, new-project, 411-research, 411-deck, skill-compliance — with one fix applied during Stage 5: frontmatter description keywords must be scanned, not stripped, for `is_scheduled` and `has_hitl`). Remaining 5 divergences are gstack-family skills (checkpoint, retro, plan-ceo-review, office-hours, skill-creator) where the preamble style differs from the documented edge case 3 pattern.
+- **Documented deferral:** `references/phase-spine.md` explicitly marks Phases 3–6 as Stage 6+ scope. The driver SKILL.md declares this visibly so a user running `/skill-factory` today sees a Phase 2 trait JSON and understands it stops there.
+- **Unblocks:** Stage 6 (first downstream sub-skill — `skill-frontmatter` — consuming a driver-materialized `phases/01-skill-frontmatter/input.md` pack per BP-033).
+- **Follow-up captured for Stage 5+:** gstack-family preamble handling. Skills like `/checkpoint`, `/retro`, `/plan-ceo-review`, `/office-hours` use a `preamble-tier: 2` YAML marker rather than `_FOO=` bash sentinels at the top of SKILL.md. Extending `_strip_gstack_preamble` to also recognize this marker style would bring 4–5 additional skills into matrix alignment. Not a blocker for Stage 6 since factory-authored skills don't have gstack preambles.
+
+### Stage 4.1 — contract cleanup: remove Archetype hint (2026-04-23, commit `83e3936`)
 - **Scope:** ADR-0001 retired the 15-archetype taxonomy at Stage 3.5. The validator contract still carried a backward-compat optional `Archetype hint` rule, and Stage 4 deferred removal to avoid enlarging that stage. Pass closes the loop.
 - **Removed from validator contract:** `Archetype hint` optional rule in `skill-spec-validator/references/spec-requirements.md`. The `## Archetype hint` header now matches no rule and is silently ignored.
 - **Fixtures + expected outputs updated in lockstep:** `passing-spec.md` and `gaps-spec.md` had their `## Archetype hint` sections removed; `expected-pass.md` + `expected-gaps.md` had `Archetype hint` dropped from `optional_present` and counts adjusted. `expected-gaps.md` now asserts `optional_present: []`; `expected-pass.md` asserts exactly 2 entries.
