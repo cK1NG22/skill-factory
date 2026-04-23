@@ -13,8 +13,8 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 ## Status snapshot
 
-- **Current stage:** Stage 3.5 shipped 2026-04-23; next interstitial is the BP × real-skill matrix exercise
-- **Latest commit:** `3897071` (Stage 3.5)
+- **Current stage:** Matrix exercise complete + ADR-0001 landed (2026-04-23). Next: Stage 4 (spec authoring ergonomics).
+- **Latest commit:** ADR-0001 commit (updated below after push)
 - **Stages shipped:** 3 of N (N depends on first-archetype exercise; likely 7–9)
 - **Sub-skills shipped:** 2 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
@@ -68,12 +68,12 @@ _Current state:_
 - [ ] Commit + push Stage 3.5
 - [ ] Verify `/skill-compliance /411-deck` still 13/13
 
-### Next (after Stage 3.5)
+### Next (after matrix + ADR-0001)
 
-- [ ] **BP × real-skill matrix exercise** — validate the 5 provisional traits against ~15–20 real skills. Produces ADR-0001.
-- [ ] **First archetype decision** — Carter + Adam. 3 candidates (transformation / phased-HITL / pipeline-orchestrator).
-- [ ] Stage 4: spec authoring ergonomics (template + example + anti-patterns)
-- [ ] Stage 5: driver skeleton + 1 archetype manifest
+- [x] **BP × real-skill matrix exercise** — 20 skills classified; ADR-0001 authored and locks Frame C + 5 traits. Predicate refinements noted for Stage 5 implementation.
+- [ ] ~~First archetype decision~~ — **obviated by Frame C.** The factory no longer branches on named archetypes. Stage 4+ proceeds under the rule-engine model.
+- [ ] Stage 4: spec authoring ergonomics (template + example + anti-patterns). Template should NOT include an archetype field per ADR-0001.
+- [ ] Stage 5: driver skeleton with 5-predicate Phase 4 loop + `trait_predicates.py` handling classifier edge cases (sibling .md, alt phase naming, gstack preamble skip, conservative invokes detection).
 
 ### Open decisions
 
@@ -83,6 +83,13 @@ _Current state:_
 - [ ] Pre-commit hook to enforce HUB.md updates — defer to post-Stage-5
 
 ## Progress log (newest first)
+
+### Matrix exercise + ADR-0001 (2026-04-23, commit TBD after push)
+- **20-skill × 5-trait matrix** run against representative skills (docx, pptx, pdf, 411-suite, freeze, guard, email-tracker, skill-creator, autoresearch, skill-compliance, brain-dump, checkpoint, skill-spec-validator, kpi-setter, new-project, retro, plan-ceo-review, office-hours).
+- **Findings:** 5 traits are sufficient and necessary — no skill needed a 6th. `invokes_skills` is genuinely rare (~5/20 after false-positive correction), vindicating BP-034. Classifier edge cases surfaced: sibling .md files (pptx/pdf) as de-facto references, alternate phase-section naming (411-research uses "## Workflow"), gstack bash preamble causing false-positive `/gstack` matches, paired-family toggles (freeze/unfreeze).
+- **Decision:** Frame C (rule engine over 5 traits) locked. Named-archetype taxonomy retired. Archetype "names" become post-hoc informal labels only.
+- **Artifact:** `docs/decisions/ADR-0001-archetype-frame.md` — full rationale, matrix, predicate refinements, alternatives (Frame A/B) rejection reasoning, follow-ups.
+- **Unblocks:** Stage 4 (spec authoring ergonomics; template has no archetype field) and Stage 5 (driver's 5-predicate Phase 4 loop).
 
 ### Stage 3.5 — structural refinements (2026-04-23, commit `3897071`)
 - **PATTERNS.md → directory of per-BP files.** 32 existing BPs split into `patterns/bp-NNN-*.md` (24 files: 23 top-level + template). 9 factory-internal BPs moved to `patterns/meta/`. 2 new BPs added: BP-033 (driver-materialized context packs) and BP-034 (sub-skills for cross-skill reuse only). Total now 34 BPs.
