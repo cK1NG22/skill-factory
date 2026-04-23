@@ -13,8 +13,8 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 
 ## Status snapshot
 
-- **Current stage:** Stage 3.5 (structural refinements) — in progress 2026-04-23
-- **Latest commit at session start:** `267bc3d` (Stage 3)
+- **Current stage:** Stage 3.5 shipped 2026-04-23; next interstitial is the BP × real-skill matrix exercise
+- **Latest commit:** `3897071` (Stage 3.5)
 - **Stages shipped:** 3 of N (N depends on first-archetype exercise; likely 7–9)
 - **Sub-skills shipped:** 2 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
@@ -84,7 +84,7 @@ _Current state:_
 
 ## Progress log (newest first)
 
-### Stage 3.5 — structural refinements (2026-04-23, commit TBD)
+### Stage 3.5 — structural refinements (2026-04-23, commit `3897071`)
 - **PATTERNS.md → directory of per-BP files.** 32 existing BPs split into `patterns/bp-NNN-*.md` (24 files: 23 top-level + template). 9 factory-internal BPs moved to `patterns/meta/`. 2 new BPs added: BP-033 (driver-materialized context packs) and BP-034 (sub-skills for cross-skill reuse only). Total now 34 BPs.
 - **Three-bucket classification:** 12 Universal / 11 Conditional / 11 Meta. Traits drive conditionals; universals always fire; meta never applied to client skills.
 - **Frame C locked.** Fixed 15-archetype taxonomy replaced by a 5-trait rule engine (`has_references`, `has_phases`, `has_hitl`, `is_scheduled`, `invokes_skills`). Traits PROVISIONAL until matrix exercise.
