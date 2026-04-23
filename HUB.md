@@ -14,7 +14,7 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 ## Status snapshot
 
 - **Current stage:** Stage 7a shipped (2026-04-23). Second sub-skill `skill-phase-designer` live standalone — 23/23 tests pass, 3 live fixtures verified (no-HITL, HITL, gaps). Next: Stage 7b (wire driver Phase 4 to invoke phase-designer when `has_phases` fires).
-- **Latest commit:** Stage 7a — skill-phase-designer standalone — pending (Stage 6b landed as `fbbffaa`; Stage 6a as `a529ffb`; Stage 5 as `79110a0`; Stage 5.1 as `99f4996`)
+- **Latest commit:** Stage 7a — skill-phase-designer standalone — `4c43511` (Stage 6b `fbbffaa`; Stage 6a `a529ffb`; Stage 5 `79110a0`; Stage 5.1 `99f4996`)
 - **Stages shipped:** 8 of N (counting 6a, 6b, 7a as full stages)
 - **Sub-skills shipped:** 4 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested; `skill-factory` driver skeleton with live Phase 1+2; `skill-frontmatter` standalone with deterministic lint + live Agent verification)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
@@ -103,7 +103,7 @@ _Current state:_
 
 ## Progress log (newest first)
 
-### Stage 7a — skill-phase-designer standalone (2026-04-23, commit pending)
+### Stage 7a — skill-phase-designer standalone (2026-04-23, commit `4c43511`)
 - **Second factory sub-skill lands.** New sibling skill at `skill-phase-designer/` (peer of `skill-frontmatter/`, `skill-spec-validator/`, etc., per BP-025). Fires when `has_phases: true`; produces a drop-in `## Procedure` section for the target SKILL.md.
 - **SKILL.md:** 10-step procedure. Reads only `phases/02-skill-phase-designer/input.md` per BP-033. Hard-BLOCKERS on two consecutive lint failures + on the `has_phases: false` precondition violation + on a walkthrough with <3 numbered items.
 - **`references/phase-design-rules.md`:** authoritative 6-rule contract. Rule 1 sequential numbering (BP-010). Rule 2 imperative-verb-at-step-start (canonical verb list + control keywords). Rule 3 no weak/passive voice (explicit phrase blocklist). Rules 4–6 conditional on `has_hitl` — hard gates (BP-012), numbered questions or AskUserQuestion (BP-015), ≤4 inline questions (BP-016). BP-011 (announce transitions) and BP-013 (ask-user-first) are prose-guided rather than lint-checked — the LLM is trusted to apply them; the rules file documents them with worked examples.
