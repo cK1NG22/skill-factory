@@ -14,7 +14,7 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 ## Status snapshot
 
 - **Current stage:** Matrix exercise complete + ADR-0001 landed (2026-04-23). Next: Stage 4 (spec authoring ergonomics).
-- **Latest commit:** ADR-0001 commit (updated below after push)
+- **Latest commit:** `88c864c` (ADR-0001)
 - **Stages shipped:** 3 of N (N depends on first-archetype exercise; likely 7–9)
 - **Sub-skills shipped:** 2 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
@@ -84,7 +84,7 @@ _Current state:_
 
 ## Progress log (newest first)
 
-### Matrix exercise + ADR-0001 (2026-04-23, commit TBD after push)
+### Matrix exercise + ADR-0001 (2026-04-23, commit `88c864c`)
 - **20-skill × 5-trait matrix** run against representative skills (docx, pptx, pdf, 411-suite, freeze, guard, email-tracker, skill-creator, autoresearch, skill-compliance, brain-dump, checkpoint, skill-spec-validator, kpi-setter, new-project, retro, plan-ceo-review, office-hours).
 - **Findings:** 5 traits are sufficient and necessary — no skill needed a 6th. `invokes_skills` is genuinely rare (~5/20 after false-positive correction), vindicating BP-034. Classifier edge cases surfaced: sibling .md files (pptx/pdf) as de-facto references, alternate phase-section naming (411-research uses "## Workflow"), gstack bash preamble causing false-positive `/gstack` matches, paired-family toggles (freeze/unfreeze).
 - **Decision:** Frame C (rule engine over 5 traits) locked. Named-archetype taxonomy retired. Archetype "names" become post-hoc informal labels only.
