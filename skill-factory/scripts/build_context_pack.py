@@ -12,6 +12,7 @@ Usage:
 
 Currently supported <sub-skill-name> values:
     skill-frontmatter
+    skill-phase-designer
 
 Output:
     <out-dir>/input.md — the materialized context pack.
@@ -29,11 +30,14 @@ import sys
 from pathlib import Path
 
 # --- Universal + Conditional BP lookup per sub-skill ---
-# For Stage 6b, only `skill-frontmatter` is wired. Each sub-skill has its own
-# canonical list of BPs — the frontmatter sub-skill uses the 5 frontmatter
-# Universals (BP-001..BP-005). Later sub-skills will add their own lists; the
-# trait-gated Conditional BPs (BP-007, BP-009, etc.) are carried in packs for
-# OTHER sub-skills (phase-designer, references-scaffolder, etc.), not here.
+# Each sub-skill has its own canonical list of BPs. The frontmatter sub-skill
+# uses the 5 frontmatter Universals (BP-001..BP-005). skill-phase-designer
+# always carries BP-010 (apply-once / carry-forward, the numbering + sequencing
+# rule), and when `has_hitl` fires it also carries BP-011/012/013/015/016.
+#
+# Trait-gated conditional BPs live in `_SUB_SKILL_CONDITIONAL_BPS` keyed by the
+# trait name that activates them. `build_pack` unions the base list with any
+# trait-gated lists whose trait fires in the classifier JSON.
 _SUB_SKILL_BPS: dict[str, list[str]] = {
     "skill-frontmatter": [
         "bp-001-trigger-phrases.md",
@@ -42,11 +46,30 @@ _SUB_SKILL_BPS: dict[str, list[str]] = {
         "bp-004-description-length.md",
         "bp-005-allowed-tools.md",
     ],
+    "skill-phase-designer": [
+        "bp-010-apply-once-carry-forward.md",
+    ],
+}
+
+# Conditional BPs keyed by trait; unioned into the pack when the trait fires.
+# Kept separate from `_SUB_SKILL_BPS` so the base list stays static — the
+# `build_pack` call-site does the trait-gated union.
+_SUB_SKILL_CONDITIONAL_BPS: dict[str, dict[str, list[str]]] = {
+    "skill-phase-designer": {
+        "has_hitl": [
+            "bp-011-announce-phase-transitions.md",
+            "bp-012-hard-gates.md",
+            "bp-013-ask-user-first.md",
+            "bp-015-number-questions.md",
+            "bp-016-inline-question-rule.md",
+        ],
+    },
 }
 
 # --- Sections each sub-skill needs from the spec ---
 # Keeping packs narrow keeps sub-skill reasoning honest — don't ship sections
-# the sub-skill does not use.
+# the sub-skill does not use. Base sections always ship; trait-gated sections
+# (e.g. HITL-relevant scoping) live in `_SUB_SKILL_CONDITIONAL_SECTIONS`.
 _SUB_SKILL_SECTIONS: dict[str, list[str]] = {
     "skill-frontmatter": [
         "Company",
@@ -58,6 +81,28 @@ _SUB_SKILL_SECTIONS: dict[str, list[str]] = {
         "Happy-path walkthrough",
         "Anti-goals",
     ],
+    "skill-phase-designer": [
+        "Company",
+        "Skill slug",
+        "One-line description",
+        "Inputs",
+        "Outputs",
+        "Happy-path walkthrough",
+        "Failure modes",
+        "Existing skills to reuse",
+    ],
+}
+
+# Conditional sections keyed by trait; appended when the trait fires. These are
+# sections the sub-skill only needs under specific trait conditions (e.g. the
+# HITL sub-skill flow reads scoping-adjacent sections).
+_SUB_SKILL_CONDITIONAL_SECTIONS: dict[str, dict[str, list[str]]] = {
+    "skill-phase-designer": {
+        "has_hitl": [
+            "Success signals",
+            "Edge cases",
+        ],
+    },
 }
 
 # --- Output location blurbs per sub-skill ---
@@ -71,6 +116,15 @@ _SUB_SKILL_OUTPUT_BLURB: dict[str, str] = {
         "Do NOT read any files not listed above. Do NOT open `patterns/` directly — "
         "the BP files you need are the ones listed above."
     ),
+    "skill-phase-designer": (
+        "Write `output.md` (draft ## Procedure section) and `notes.md` to `phases/02-skill-phase-designer/`.\n"
+        "\n"
+        "- `output.md` — the draft `## Procedure` section ready to paste into the target SKILL.md.\n"
+        "- `notes.md` — `BLOCKER:` lines if any, otherwise short informational observations.\n"
+        "\n"
+        "Do NOT read any files not listed above. Do NOT open `patterns/` directly — "
+        "the BP files you need are the ones listed above."
+    ),
 }
 
 # --- Task lines per sub-skill ---
@@ -78,6 +132,9 @@ _SUB_SKILL_TASK: dict[str, str] = {
     "skill-frontmatter": (
         "Generate compliant YAML frontmatter for a factory-authored skill. "
         "Write `output.yaml`, `output.md`, and `notes.md` into the same directory as this `input.md`."
+    ),
+    "skill-phase-designer": (
+        "Design the ## Procedure section for the target SKILL.md. Pass scripts/phase_lint.py."
     ),
 }
 
@@ -133,8 +190,22 @@ def render_traits_block(classifier: dict, invoked_slugs: list[str]) -> str:
 # --- BP path resolver ---
 
 
-def resolve_bp_paths(sub_skill_name: str, patterns_root: Path) -> list[str]:
-    filenames = _SUB_SKILL_BPS[sub_skill_name]
+def resolve_bp_paths(
+    sub_skill_name: str,
+    patterns_root: Path,
+    firing_traits: list[str] | None = None,
+) -> list[str]:
+    """Return the absolute BP paths for `sub_skill_name`, unioning the base
+    list with any trait-gated conditional BPs whose trait is in
+    `firing_traits`. Preserves declaration order (base first, then each
+    conditional block in canonical trait order)."""
+    filenames: list[str] = list(_SUB_SKILL_BPS[sub_skill_name])
+    conditional = _SUB_SKILL_CONDITIONAL_BPS.get(sub_skill_name, {})
+    if firing_traits:
+        for trait in firing_traits:
+            for fn in conditional.get(trait, []):
+                if fn not in filenames:
+                    filenames.append(fn)
     return [str(patterns_root / fn) for fn in filenames]
 
 
@@ -170,9 +241,23 @@ def build_pack(
     reuse_section = sections.get("Existing skills to reuse")
     invoked_slugs = extract_invoked_slugs(reuse_section)
 
-    # Compose the spec excerpt
+    # Which traits fire? Used to union conditional BPs / sections.
+    traits = classifier.get("traits", {}) or {}
+    firing_traits = [
+        name for name, verdict in traits.items()
+        if isinstance(verdict, dict) and bool(verdict.get("fires", False))
+    ]
+
+    # Compose the spec excerpt — base sections plus any trait-gated additions.
+    section_order: list[str] = list(_SUB_SKILL_SECTIONS[sub_skill_name])
+    conditional_sections = _SUB_SKILL_CONDITIONAL_SECTIONS.get(sub_skill_name, {})
+    for trait in firing_traits:
+        for extra in conditional_sections.get(trait, []):
+            if extra not in section_order:
+                section_order.append(extra)
+
     excerpt_lines = []
-    for section_name in _SUB_SKILL_SECTIONS[sub_skill_name]:
+    for section_name in section_order:
         body = sections.get(section_name)
         if body is None:
             # Optional sections are OK to omit; required already validated above
@@ -183,7 +268,7 @@ def build_pack(
     spec_excerpt = "\n".join(excerpt_lines).rstrip()
 
     traits_block = render_traits_block(classifier, invoked_slugs)
-    bp_paths = resolve_bp_paths(sub_skill_name, patterns_root)
+    bp_paths = resolve_bp_paths(sub_skill_name, patterns_root, firing_traits)
 
     pack = (
         f"# Input pack — {sub_skill_name}\n"
