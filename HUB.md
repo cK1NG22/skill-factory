@@ -72,8 +72,14 @@ _Current state:_
 
 - [x] **BP × real-skill matrix exercise** — 20 skills classified; ADR-0001 authored and locks Frame C + 5 traits. Predicate refinements noted for Stage 5 implementation.
 - [ ] ~~First archetype decision~~ — **obviated by Frame C.** The factory no longer branches on named archetypes. Stage 4+ proceeds under the rule-engine model.
-- [ ] Stage 4: spec authoring ergonomics (template + example + anti-patterns). Template should NOT include an archetype field per ADR-0001.
-- [ ] Stage 5: driver skeleton with 5-predicate Phase 4 loop + `trait_predicates.py` handling classifier edge cases (sibling .md, alt phase naming, gstack preamble skip, conservative invokes detection).
+- [ ] **Stage 4: spec authoring ergonomics** — three deliverables under `skill-factory/assets/`:
+  1. `client-spec-template.md` (blank form, NO archetype field per ADR-0001)
+  2. `client-spec-examples/<first-example>.md` (recommend a docx-style transformation spec as the first concrete example)
+  3. `spec-anti-patterns.md` (common mistakes: vague outputs, missing failure modes, conflicting trigger phrases, single-use sub-skill proposals per BP-034)
+  - All three must pass `/skill-spec-validator` cleanly end-to-end.
+  - One commit, one stage, stop-and-review after.
+- [ ] **Stage 5: driver skeleton + `trait_predicates.py`** — 5-predicate Phase 4 loop. Implementation must handle the 4 classifier edge cases captured in [feedback-trait-classifier-edge-cases.md](../../../.claude/projects/-Users-carterking/memory/feedback-trait-classifier-edge-cases.md): sibling .md as refs, alt phase naming, gstack preamble skip, conservative invokes detection with paired-family toggle exclusion.
+- [ ] **Post-Stage-5 review:** promote BP-035 candidate ([feedback-no-gstack-preamble-in-factory-subskills.md](../../../.claude/projects/-Users-carterking/memory/feedback-no-gstack-preamble-in-factory-subskills.md)) into `patterns/meta/bp-035-no-factory-preamble.md` when the first factory sub-skill PR surfaces the discipline.
 
 ### Open decisions
 
