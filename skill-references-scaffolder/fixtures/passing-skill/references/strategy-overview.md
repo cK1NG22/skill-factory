@@ -1,0 +1,1 @@
+# Strategy overview (fixture stub)

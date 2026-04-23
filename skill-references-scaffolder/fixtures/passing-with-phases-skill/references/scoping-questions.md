@@ -1,0 +1,1 @@
+# Scoping questions (fixture stub)
