@@ -75,6 +75,23 @@ Four implementation gotchas in `scripts/trait_predicates.py` that the naive rege
 
 ---
 
+## Out of scope: gstack-family skills
+
+**Decision (2026-04-23):** gstack-family skills (`/retro`, `/plan-ceo-review`, `/office-hours`, `/checkpoint`, `/skill-creator`, and other skills tagged with `preamble-tier:` in their frontmatter) are **out of scope for classifier correctness**. Classifier verdicts on gstack skills are advisory, not authoritative.
+
+**Why:**
+- Gstack skills follow a different architecture than what the factory produces: `preamble-tier:` YAML marker, 800+ line monolithic SKILL.md, inline bash referencing `~/.claude/skills/gstack/bin/…` tooling paths, paired-family user-initiated composition (`/freeze` ↔ `/unfreeze`).
+- Factory-authored skills follow BP-006 (lean traffic director, 180-220 line SKILL.md), BP-008 (refs in `references/` subdir), BP-033 (driver-materialized context packs, no inline bash preamble). Nothing the factory produces will ever look like a gstack skill.
+- Extending `_strip_gstack_preamble()` to recognize the `preamble-tier:` marker would add code complexity for skills the factory does not and will not produce.
+
+**What this means practically:**
+- When running the classifier against a gstack-family skill for regression or curiosity, expect noise: several traits may false-fire.
+- Do NOT modify the classifier to improve gstack agreement.
+- Do NOT treat gstack divergences from ADR-0001's manual-adjusted matrix as bugs.
+- If a future need emerges to classify gstack skills correctly (e.g., someone wants to dogfood-regenerate one through the factory), revisit this decision then — but at that point the bigger question is whether the factory should support the gstack architecture at all, not whether the classifier should be patched.
+
+The 4 documented edge cases above (sibling refs, workflow headings, bash preamble, paired-family) remain in scope because they appear in non-gstack skills too. Edge case 3 (bash preamble skip) was partly motivated by gstack skills but the documented `_FOO=` sentinel style is sufficient — the stronger `preamble-tier:` marker is what's out of scope.
+
 ## Testing discipline
 
 Every edge case above has:
