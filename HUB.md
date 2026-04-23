@@ -83,10 +83,12 @@ _Current state:_
 
 ### Open decisions
 
-- [ ] First archetype to ship MVP
+- [x] ~~First archetype to ship MVP~~ — obviated by Frame C (ADR-0001)
 - [x] **Adam's GitHub handle** — `adamkingai`. Collaborator invitation sent 2026-04-22.
 - [ ] CI on PRs (`.github/workflows/compliance.yml`) — defer until after first archetype ships
 - [ ] Pre-commit hook to enforce HUB.md updates — defer to post-Stage-5
+- [ ] **Skill-compliance rule additions deferred to Stage 5+** — when the driver ships, add: (a) BP-033 check (sub-skill SKILL.md opens with "read only input.md" variant), (b) cross-scope meta check (client skill output must never reference a BP in `patterns/meta/`). Both require the driver's input.md convention to exist first, so can't implement until Stage 5.
+- [ ] **BP-034 validator now does filesystem lookups** — `skill-spec-validator`'s BP-034 gap check checks `~/.claude/skills/<name>/` existence when a spec names a `/<skill>` in the reuse section. This means the validator's behavior depends on the ecosystem's installed-skill state, not just the spec content. Keep it this way (per BP-034), but remember it's an external dependency: a factory run in a different environment (e.g., a clean CI runner without gstack installed) will reject specs that would pass in Carter's local setup.
 
 ## Progress log (newest first)
 
