@@ -123,6 +123,8 @@ _Current state:_
 
 ## Progress log (newest first)
 
+- 2026-04-24 — Session ended after the full Stage 9 wave shipped (9.0 + 9a + 9b + 9c, 7 commits, all pushed). Driver-integrated sub-skills 5/5; operational phases 6/6; self-bootstrap verified. Handoff: `handoff-skill-factory.md`.
+
 ### Stage 9c — self-bootstrap verification (2026-04-24, on `main`)
 
 - **What shipped.** **Principle D is now satisfied.** The factory genuinely reproduces itself: fed a 10-required-section spec describing its own behavior, the factory authors itself end-to-end, all expected sub-skills fire, all artifacts pass lint. This is the strongest possible "the factory works" signal — the factory eats its own dogfood and produces lint-clean output.
