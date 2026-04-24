@@ -1,0 +1,28 @@
+Stage 10 pre-flight test totals — 2026-04-24, on main at e50513a
+
+6 suites, 234 tests, all OK.
+
+| Suite                                   | Tests | Result |
+|-----------------------------------------|-------|--------|
+| skill-frontmatter/tests/                |  22   | OK     |
+| skill-phase-designer/tests/             |  33   | OK     |
+| skill-references-scaffolder/tests/      |  51   | OK     |
+| skill-cron-observability/tests/         |  28   | OK     |
+| skill-signed-handoff/tests/             |  36   | OK     |
+| skill-factory/tests/                    |  64   | OK     |
+|                                         | ====  |        |
+| Total                                   | 234   |        |
+
+Breakdown of skill-factory/tests/ (64 total):
+  - test_trait_predicates.py   10 tests
+  - test_build_context_pack.py 54 tests (10 Stage 5 + 14 Stage 6b + 11 Stage 7b + 3 Stage 7b sweep + 12 Stage 9a + 14 Stage 9b = 64; per-file split within the suite)
+
+skill-compliance and skill-spec-validator have no tests/ directories
+by design (skill-compliance = single CLI script; skill-spec-validator
+= validator-as-skill, fixtures + oracles instead of unit tests).
+
+Stage 10 target: 234 → ~304 across 8 suites
+  + skill-compliance-gate/tests/test_gate.py         (~18 new)
+  + skill-factory/tests/test_assemble_skill.py       (~24 new)
+  + skill-factory/tests/test_phase8_director.py      (~6 new)
+  + skill-factory/tests/test_build_context_pack.py   (+12 additions for gate registration)

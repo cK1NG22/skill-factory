@@ -1,0 +1,109 @@
+{
+  "results": [
+    {
+      "skill_path": "skill-frontmatter",
+      "skill_name": "skill-frontmatter",
+      "checks": [
+        {
+          "id": 1,
+          "name": "skill_md_exists",
+          "severity": "required",
+          "status": "pass",
+          "message": "SKILL.md exists"
+        },
+        {
+          "id": 2,
+          "name": "name_exists",
+          "severity": "required",
+          "status": "pass",
+          "message": "name: 'skill-frontmatter'"
+        },
+        {
+          "id": 3,
+          "name": "name_format",
+          "severity": "required",
+          "status": "pass",
+          "message": "name 'skill-frontmatter' is valid kebab-case, 17 chars"
+        },
+        {
+          "id": 4,
+          "name": "description_exists",
+          "severity": "required",
+          "status": "pass",
+          "message": "description present (430 chars)"
+        },
+        {
+          "id": 5,
+          "name": "description_length",
+          "severity": "required",
+          "status": "pass",
+          "message": "description is 430 chars (max 1024)"
+        },
+        {
+          "id": 6,
+          "name": "frontmatter_keys",
+          "severity": "required",
+          "status": "pass",
+          "message": "All frontmatter keys are recognized"
+        },
+        {
+          "id": 7,
+          "name": "trigger_phrases",
+          "severity": "best-practice",
+          "status": "pass",
+          "message": "Description contains trigger phrases"
+        },
+        {
+          "id": 8,
+          "name": "description_pushy",
+          "severity": "best-practice",
+          "status": "pass",
+          "message": "Description is 430 chars (>100 threshold)"
+        },
+        {
+          "id": 9,
+          "name": "body_max_lines",
+          "severity": "best-practice",
+          "status": "pass",
+          "message": "Body is 180 lines (max 500)"
+        },
+        {
+          "id": 10,
+          "name": "body_ideal_range",
+          "severity": "info",
+          "status": "pass",
+          "message": "Body is 180 lines (ideal 180-220 range)"
+        },
+        {
+          "id": 11,
+          "name": "references_for_large",
+          "severity": "best-practice",
+          "status": "pass",
+          "message": "Body is 180 lines \u2014 no references/ needed"
+        },
+        {
+          "id": 12,
+          "name": "references_depth",
+          "severity": "best-practice",
+          "status": "pass",
+          "message": "references/ is one level deep"
+        },
+        {
+          "id": 13,
+          "name": "step_knowledge_refs",
+          "severity": "best-practice",
+          "status": "pass",
+          "message": "Check not applicable (no references/ or body \u2264200 lines)"
+        }
+      ],
+      "summary": {
+        "passed": 13,
+        "warnings": 0,
+        "failures": 0,
+        "total": 13
+      }
+    }
+  ],
+  "skipped_symlinks": 0,
+  "total_skills_checked": 1
+}
