@@ -427,5 +427,33 @@ class TestPhaseDesignerCLI(unittest.TestCase):
         self.assertIn("bp-010-apply-once-carry-forward.md", text)
 
 
+class TestStage7bAuditRegressions(unittest.TestCase):
+    """Regression tests for the Stage 7b independent-review findings."""
+
+    def test_render_traits_block_null_traits_coalesces(self):
+        """SMELL #1: classifier with `"traits": null` must not crash.
+        Repro before fix: AttributeError on `.get` of None."""
+        out = bcp.render_traits_block({"traits": None}, [])
+        # All 5 traits render as false when traits is null/missing
+        for key in ["has_references", "has_phases", "has_hitl", "is_scheduled", "invokes_skills"]:
+            self.assertIn(f"{key}: false", out)
+
+    def test_render_traits_block_missing_traits_key(self):
+        """Paired test: classifier missing the `traits` key entirely."""
+        out = bcp.render_traits_block({}, [])
+        for key in ["has_references", "has_phases", "has_hitl", "is_scheduled", "invokes_skills"]:
+            self.assertIn(f"{key}: false", out)
+
+    def test_resolve_bp_paths_rejects_unknown_subskill(self):
+        """SMELL #2: resolve_bp_paths must raise ValueError (not KeyError) on
+        unknown sub-skill, matching build_pack's validation for parity."""
+        with self.assertRaises(ValueError) as cm:
+            bcp.resolve_bp_paths("bogus", Path("/tmp"), firing_traits=None)
+        # Error message lists the supported sub-skills for easy debugging
+        self.assertIn("bogus", str(cm.exception))
+        self.assertIn("skill-frontmatter", str(cm.exception))
+        self.assertIn("skill-phase-designer", str(cm.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

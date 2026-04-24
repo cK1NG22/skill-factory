@@ -21,6 +21,28 @@ Exit codes:
     0 — pack materialized successfully
     1 — spec missing a required section or sub-skill name unsupported
     2 — usage / I/O error
+
+## Adding a new sub-skill (author-facing cheat sheet)
+
+To register a new sub-skill (e.g. Wave 3's skill-references-scaffolder), add a
+row keyed by the sub-skill name in each applicable dict below. Two tiers:
+
+  Tier 1 — always edit (4 dicts, Stage 6b baseline):
+    1. _SUB_SKILL_BPS            — base BP filenames (always shipped)
+    2. _SUB_SKILL_SECTIONS       — base spec sections to carry into input.md
+    3. _SUB_SKILL_OUTPUT_BLURB   — where the sub-skill writes its outputs
+    4. _SUB_SKILL_TASK           — one-line task statement
+
+  Tier 2 — edit only if the sub-skill has trait-gated additions (2 dicts,
+  Stage 7b extension):
+    5. _SUB_SKILL_CONDITIONAL_BPS      — {trait: [bp-files]} — BPs added
+                                         when the named trait fires
+    6. _SUB_SKILL_CONDITIONAL_SECTIONS — {trait: [section-names]} — spec
+                                         sections added when trait fires
+
+If the sub-skill's BP list or section list never varies with traits, skip
+Tier 2 entirely. The union with firing traits happens inside `build_pack` /
+`resolve_bp_paths` — callers don't need to know about the split.
 """
 from __future__ import annotations
 
@@ -175,7 +197,7 @@ def extract_invoked_slugs(reuse_section_text: str | None) -> list[str]:
 
 
 def render_traits_block(classifier: dict, invoked_slugs: list[str]) -> str:
-    traits = classifier.get("traits", {})
+    traits = classifier.get("traits") or {}
     order = ["has_references", "has_phases", "has_hitl", "is_scheduled", "invokes_skills"]
     lines = []
     for key in order:
@@ -198,7 +220,14 @@ def resolve_bp_paths(
     """Return the absolute BP paths for `sub_skill_name`, unioning the base
     list with any trait-gated conditional BPs whose trait is in
     `firing_traits`. Preserves declaration order (base first, then each
-    conditional block in canonical trait order)."""
+    conditional block in canonical trait order). Raises ValueError with the
+    list of supported sub-skills if `sub_skill_name` is unknown — matches
+    `build_pack`'s validation so direct callers get the same useful error."""
+    if sub_skill_name not in _SUB_SKILL_BPS:
+        raise ValueError(
+            f"unsupported sub-skill: {sub_skill_name!r}. "
+            f"supported: {sorted(_SUB_SKILL_BPS.keys())}"
+        )
     filenames: list[str] = list(_SUB_SKILL_BPS[sub_skill_name])
     conditional = _SUB_SKILL_CONDITIONAL_BPS.get(sub_skill_name, {})
     if firing_traits:
