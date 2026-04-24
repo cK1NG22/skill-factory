@@ -14,7 +14,7 @@ originSessionId: 39d17308-dc54-4cfd-aa4c-f202a030961e
 ## Status snapshot
 
 - **Current stage:** Stage 8c shipped (2026-04-23). Three sub-skills landed back-to-back **standalone**: `skill-references-scaffolder` (8a, BP-007/008/009, 38 tests, fires when `has_references` ∨ `has_phases`-for-parallel-folders), `skill-cron-observability` (8b, BP-022, 28 tests, fires on `is_scheduled`), `skill-signed-handoff` (8c, BP-024, 36 tests, fires on `has_phases` ∧ `invokes_skills`). Plus a small Stage 7b audit sweep on the driver's `build_context_pack.py` (null-`traits` coalesce + `ValueError`-not-`KeyError` parity on unknown sub-skill + author-facing Tier-1/Tier-2 registration cheat-sheet + 3 regression tests; 28/28 pack-builder tests green). Driver integration for the three new sub-skills (Phase 4c/4d/4e wiring) intentionally deferred to **Stage 9 / Wave 3** per BP-029. Next: Stage 9 planning.
-- **Latest commit:** Housekeeping — Stage 7b audit sweep + Stage 8a/8b/8c HUB backfill — `<TBD-backfill>` (Stage 8c `db48106`; Stage 8b `6873e91`; Stage 8a `0d17a46`; Stage 7b `06683e1`; Stage 7a `4c43511`; Stage 6b `fbbffaa`; Stage 6a `a529ffb`)
+- **Latest commit:** Housekeeping — Stage 7b audit sweep + Stage 8a/8b/8c HUB backfill — `108d2de` (Stage 8c `db48106`; Stage 8b `6873e91`; Stage 8a `0d17a46`; Stage 7b `06683e1`; Stage 7a `4c43511`; Stage 6b `fbbffaa`; Stage 6a `a529ffb`)
 - **Stages shipped:** 12 of N (counting 6a, 6b, 7a, 7b, 8a, 8b, 8c as full stages)
 - **Sub-skills shipped:** 8 / 15 (`skill-compliance` migrated; `skill-spec-validator` built + tested; `skill-factory` driver skeleton with live Phase 1+2+3+4a+4b; `skill-frontmatter` standalone + Agent-verified; `skill-phase-designer` standalone + Agent-verified; `skill-references-scaffolder` standalone; `skill-cron-observability` standalone; `skill-signed-handoff` standalone)
 - **Patterns codified:** 34 BPs after Stage 3.5 (was 32; +BP-033 +BP-034)
@@ -115,7 +115,7 @@ _Current state:_
 
 ## Progress log (newest first)
 
-### Housekeeping — Stage 7b audit sweep + Stage 8a/8b/8c HUB backfill (2026-04-23, commit `<TBD-backfill>`)
+### Housekeeping — Stage 7b audit sweep + Stage 8a/8b/8c HUB backfill (2026-04-23, commit `108d2de`)
 - **What landed:** small audit sweep on the driver's pack builder + HUB.md consolidation for the three Stage 8 sub-skills that had shipped without a HUB log entry. No code-logic changes to any sub-skill.
 - **`skill-factory/scripts/build_context_pack.py` fixes (independent-review findings from the Stage 7b review):**
   - **Bug #1 (SMELL #1):** `render_traits_block` called `classifier.get("traits", {}).get(key)` which raises `AttributeError` when the classifier JSON contains `"traits": null` rather than omitting the key. Fixed by coalescing `None` to `{}` via `traits = classifier.get("traits") or {}`. Null and missing-key cases now both cleanly render all 5 traits as `false`.
