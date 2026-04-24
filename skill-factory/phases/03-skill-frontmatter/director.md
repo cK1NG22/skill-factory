@@ -1,21 +1,64 @@
 # Phase 3 — skill-frontmatter (director)
 
-> **Status: PLACEHOLDER (Stage 9.0.1).** This director has not yet been populated.
-> Content for this phase currently lives inline in `../../SKILL.md` under
-> `### Step 3 — Phase 3: Materialize the skill-frontmatter pack` and
-> `### Step 4 — Phase 4a: Spawn skill-frontmatter`. Populated during Stage 9.0.3c.
+Phase 3 always fires. Every skill the factory produces needs frontmatter,
+so this phase has no conditional gate. Combines what were Steps 3 and 4
+of the pre-Stage-9 SKILL.md into a single phase.
 
-## TODO (Stage 9.0.3c)
+## Procedure
 
-Merge current Steps 3 and 4 into this single phase director:
+1. **Materialize the frontmatter pack** via the pack builder:
 
-- Pack materialization via `scripts/build_context_pack.py`.
-- Isolated Agent spawn targeting `skill-frontmatter`.
-- Lint verification via `frontmatter_lint.py`.
-- BLOCKER discipline on two consecutive fails (per BP-028).
-- Pointer to `references/spawn-subagent.md` (cross-phase, shared mechanics).
-- Pointer to `references/invocation-contract.md` (cross-phase, BP-033 schema).
-- Pointer to `references/frontmatter-invocation.md` (phase-scoped, to be created in 9.0.3c).
+   ```bash
+   python3 ~/Projects/skill-factory/skill-factory/scripts/build_context_pack.py \
+       <spec-path> \
+       <work>/classifier.json \
+       skill-frontmatter \
+       <work>/phases/03-skill-frontmatter
+   ```
 
-Until this is populated, the driver `SKILL.md` remains authoritative for
-Phase 3 (frontmatter) execution.
+   The pack builder writes `<work>/phases/03-skill-frontmatter/input.md` in
+   the shape `skill-frontmatter` expects — see
+   `../../references/invocation-contract.md` for the canonical section
+   order.
+
+2. **Spawn `skill-frontmatter`** as an isolated Agent subtask per
+   `../../references/spawn-subagent.md`. Pass the exact `input.md` path
+   from step 1.
+
+3. **Wait for outputs.** The sub-skill writes three files into the phase
+   directory: `output.yaml` (the frontmatter), `output.md` (rationale),
+   `notes.md` (blockers/observations).
+
+4. **Verify the frontmatter** with the sub-skill's lint:
+
+   ```bash
+   python3 ~/Projects/skill-factory/skill-frontmatter/scripts/frontmatter_lint.py \
+       <work>/phases/03-skill-frontmatter/output.yaml
+   ```
+
+5. **Interpret the verdict** per the BP-028 discipline in
+   `../../references/spawn-subagent.md`:
+   - `passed: true` → hand the frontmatter to Phase 4.
+   - Lint fails AND `notes.md` has a `BLOCKER:` → print the BLOCKER and
+     STOP. Do not retry.
+   - Lint fails, no `BLOCKER:` → protocol violation; report and STOP.
+
+See `references/frontmatter-invocation.md` for the exact BP-set
+(`BP-001..BP-005`) the pack imposes and the `output.yaml` shape the driver
+reads.
+
+## What this phase does NOT do
+
+- Does NOT read the `has_phases` trait. Frontmatter fires regardless —
+  every skill has frontmatter.
+- Does NOT modify the frontmatter itself. If the sub-skill produces
+  invalid frontmatter, the driver stops; it does not edit the YAML.
+- Does NOT hand-install the frontmatter into the target SKILL.md. That's
+  a post-factory step for the user (or a future Wave 4 phase).
+
+## Cross-reference
+
+- Agent-spawn mechanics: `../../references/spawn-subagent.md`.
+- `input.md` BP-033 contract: `../../references/invocation-contract.md`.
+- Phase-scoped specifics for this sub-skill:
+  `references/frontmatter-invocation.md`.
