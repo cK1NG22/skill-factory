@@ -1,0 +1,26 @@
+{
+  "mode": "spec",
+  "input": "/Users/carterking/Projects/skill-factory/skill-factory/fixtures/self-bootstrap/skill-factory-spec.md",
+  "traits": {
+    "has_references": {
+      "fires": true,
+      "evidence": "spec mentions reference-content signals: ['framework']"
+    },
+    "has_phases": {
+      "fires": true,
+      "evidence": "Happy-path walkthrough has 8 numbered steps"
+    },
+    "has_hitl": {
+      "fires": false,
+      "evidence": "insufficient HITL signals (found [\"'\\\\\\\\b(?:hard )?gate\\\\\\\\b'x5\"])"
+    },
+    "is_scheduled": {
+      "fires": false,
+      "evidence": "no scheduling keywords"
+    },
+    "invokes_skills": {
+      "fires": false,
+      "evidence": "reuse section present but lists no /<skill> entries"
+    }
+  }
+}
