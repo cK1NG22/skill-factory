@@ -1,0 +1,10 @@
+{
+  "passed": false,
+  "fails": [
+    "no '### Step N \u2014 <label>' headings found"
+  ],
+  "warns": [
+    "no '## Procedure' section header found; steps should live under a '## Procedure' section per factory convention"
+  ],
+  "info": []
+}

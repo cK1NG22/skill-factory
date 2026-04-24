@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "fails": [],
+  "warns": [],
+  "info": [
+    "description length: 603 chars",
+    "trigger phrases detected: 6",
+    "allowed-tools declared: ['Read', 'Write', 'Bash']"
+  ]
+}

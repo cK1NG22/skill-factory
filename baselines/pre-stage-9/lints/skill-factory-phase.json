@@ -1,0 +1,12 @@
+{
+  "passed": false,
+  "fails": [
+    "weak/passive voice detected (2 instance(s)): ['attempt to', 'try to']"
+  ],
+  "warns": [
+    "no '## Procedure' section header found; steps should live under a '## Procedure' section per factory convention"
+  ],
+  "info": [
+    "6 step(s) detected in sequence 1..6"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "passed": false,
+  "fails": [
+    "weak/passive voice detected (4 instance(s)): ['it should', 'should be', 'we should', 'you should']"
+  ],
+  "warns": [],
+  "info": [
+    "10 step(s) detected in sequence 1..10"
+  ]
+}

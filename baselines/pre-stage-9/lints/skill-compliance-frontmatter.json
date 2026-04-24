@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "fails": [],
+  "warns": [
+    "description lacks a 'Do NOT use for X' negative clause; factory recommends one to improve trigger precision (BP-002)"
+  ],
+  "info": [
+    "description length: 357 chars",
+    "trigger phrases detected: 7",
+    "allowed-tools declared: ['Read', 'Glob', 'Grep', 'Bash', 'AskUserQuestion']"
+  ]
+}

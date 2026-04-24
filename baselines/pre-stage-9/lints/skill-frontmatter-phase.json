@@ -1,0 +1,14 @@
+{
+  "passed": false,
+  "fails": [
+    "step 4 ('Construct `name`') starts with 'where'; not in canonical imperative-verb list. See references/phase-design-rules.md Rule 2.",
+    "step 5 ('Construct `description`') starts with 'structure'; not in canonical imperative-verb list. See references/phase-design-rules.md Rule 2.",
+    "step 6 ('Construct `allowed-tools`') starts with 'infer'; not in canonical imperative-verb list. See references/phase-design-rules.md Rule 2.",
+    "step 10 ('Write output files') starts with 'contains'; not in canonical imperative-verb list. See references/phase-design-rules.md Rule 2.",
+    "weak/passive voice detected (1 instance(s)): ['attempt to']"
+  ],
+  "warns": [],
+  "info": [
+    "10 step(s) detected in sequence 1..10"
+  ]
+}
