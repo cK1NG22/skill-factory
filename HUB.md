@@ -334,3 +334,4 @@ After shipping a stage:
 
 - `~/.claude/plans/yeah-let-s-go-ahead-kind-nest.md` — original approved plan (Stages 1–3 executed against this)
 - `~/.claude/plans/i-want-to-work-gentle-dolphin.md` — v3 refinement plan (Stage 3.5 executed against this)
+- `~/.claude/plans/stage-9-wave-3-driver-wiring.md` — Stage 9 plan **v2** (2026-04-24, draft-awaiting-approval). Scope: wire Stage 8 sub-skills + adopt two-level director hierarchy + self-bootstrap verification. Hybrid branch strategy (Option C): Stage 9.-1 + 9.0 on `stage-9-work` branch, 9a/9b/9c directly on `main` after 9.0 merges. Principles D–G locked; tiebreaker rule locked. Awaits Carter go for Stage 9.-1.
