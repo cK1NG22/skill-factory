@@ -10,7 +10,7 @@ allowed-tools:
 
 # skill-references-scaffolder
 
-**Read ONLY your `phases/03-skill-references-scaffolder/input.md`** (per BP-033). The driver has distilled the spec's references list, the relevant trait verdicts (`has_references`, `has_phases`), and the specific BP file paths into `input.md`. Do NOT open the `patterns/` directory directly. Do NOT open the full spec file directly.
+**Read ONLY your driver-supplied `input.md`** (per BP-033). The driver materializes it under `phases/05-skill-references-scaffolder/input.md` (Stage 9a wiring; the path is also embedded in your invocation prompt). The pack has distilled the spec's references list, the relevant trait verdicts (`has_references`, `has_phases`), and the specific BP file paths. Do NOT open the `patterns/` directory directly. Do NOT open the full spec file directly.
 
 The one thing this skill produces: a populated `references/` folder (and a verified parallel-folder layout when `has_phases` fires) that passes `scripts/references_lint.py` against `references/references-rules.md`.
 
@@ -26,12 +26,12 @@ The one thing this skill produces: a populated `references/` folder (and a verif
 
 ### Driver-invoked (normal case)
 
-Called as an isolated `Agent` subtask from the Skill Factory driver's Phase 4 when either `has_references` or `has_phases` fires.
+Called as an isolated `Agent` subtask from the Skill Factory driver's Phase 5 when `has_references` fires (Stage 9a wiring; BP-009 parallel-folders rule unioned in via `_SUB_SKILL_CONDITIONAL_BPS` when `has_phases` also fires).
 
 **Reads:**
-- `phases/03-skill-references-scaffolder/input.md` — the driver-materialized context pack.
+- `phases/05-skill-references-scaffolder/input.md` — the driver-materialized context pack.
 
-**Writes (to `phases/03-skill-references-scaffolder/`):**
+**Writes (to `phases/05-skill-references-scaffolder/`):**
 - `output.md` — a structured plan naming the files to create under `references/`, the canonical citation lines to splice into SKILL.md, and the parallel-folder verdict.
 - `notes.md` — `BLOCKER:` lines if any, otherwise short observations.
 

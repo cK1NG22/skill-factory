@@ -10,7 +10,7 @@ allowed-tools:
 
 # skill-cron-observability
 
-**Read ONLY your `phases/04-skill-cron-observability/input.md`** (per BP-033). The driver has distilled the spec's Scheduling section, the relevant traits (`is_scheduled`), and the BP file paths into `input.md`. Do NOT open the `patterns/` directory directly. Do NOT open the full spec file directly.
+**Read ONLY your driver-supplied `input.md`** (per BP-033). The driver materializes it under `phases/06-skill-cron-observability/input.md` (Stage 9a wiring; the path is also embedded in your invocation prompt). The pack has distilled the spec's Scheduling section, the relevant traits (`is_scheduled`), and the BP file paths. Do NOT open the `patterns/` directory directly. Do NOT open the full spec file directly.
 
 The one thing this skill produces: an `instrumentation-snippet.md` — a copy-pasteable code block that wires the BP-022 observability contract into the target cron skill, plus a lint verdict on that snippet (or on an already-written `scripts/` directory).
 
@@ -33,12 +33,12 @@ Every cron/scheduled skill must answer three questions on demand: when did it la
 
 ### Driver-invoked (normal case)
 
-Called as an isolated `Agent` subtask from the Skill Factory driver's Phase 4 when the `is_scheduled` trait fires.
+Called as an isolated `Agent` subtask from the Skill Factory driver's Phase 6 when the `is_scheduled` trait fires.
 
 **Reads:**
-- `phases/04-skill-cron-observability/input.md` — the driver-materialized context pack.
+- `phases/06-skill-cron-observability/input.md` — the driver-materialized context pack.
 
-**Writes (to `phases/04-skill-cron-observability/`):**
+**Writes (to `phases/06-skill-cron-observability/`):**
 - `instrumentation-snippet.md` — a fenced Python block ready to paste into the target skill's cron orchestration.
 - `output.md` — a short rationale wrapper around the snippet.
 - `notes.md` — `BLOCKER:` lines if any, otherwise short observations.

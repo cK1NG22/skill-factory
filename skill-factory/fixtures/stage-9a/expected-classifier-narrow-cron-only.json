@@ -1,0 +1,26 @@
+{
+  "mode": "spec",
+  "input": "/Users/carterking/Projects/skill-factory/skill-factory/fixtures/stage-9a/narrow-cron-only.md",
+  "traits": {
+    "has_references": {
+      "fires": false,
+      "evidence": "no reference-content signals in spec body"
+    },
+    "has_phases": {
+      "fires": false,
+      "evidence": "<3 phase headings, <3 numbered headings, no Workflow section with 3+ items"
+    },
+    "has_hitl": {
+      "fires": false,
+      "evidence": "insufficient HITL signals (found [])"
+    },
+    "is_scheduled": {
+      "fires": true,
+      "evidence": "scheduling keywords: ['cron', 'scheduled', 'weekly']"
+    },
+    "invokes_skills": {
+      "fires": false,
+      "evidence": "reuse section present but lists no /<skill> entries"
+    }
+  }
+}

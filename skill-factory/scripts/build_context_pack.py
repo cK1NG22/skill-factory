@@ -9,16 +9,21 @@ isolated Agent subtask — per BP-033, sub-skills read ONLY their `input.md`.
 
 Usage:
     build_context_pack.py <spec-path> <classifier-json> <sub-skill-name> <out-dir>
+        [--patterns-root <dir>] [--target-skill-dir <dir>]
+
+    build_context_pack.py --prescaffold-references <spec-path> <target-skill-dir>
 
 Currently supported <sub-skill-name> values:
     skill-frontmatter
     skill-phase-designer
+    skill-references-scaffolder    (Stage 9a)
+    skill-cron-observability       (Stage 9a)
 
 Output:
     <out-dir>/input.md — the materialized context pack.
 
 Exit codes:
-    0 — pack materialized successfully
+    0 — pack materialized successfully (or prescaffold completed)
     1 — spec missing a required section or sub-skill name unsupported
     2 — usage / I/O error
 
@@ -43,6 +48,24 @@ row keyed by the sub-skill name in each applicable dict below. Two tiers:
 If the sub-skill's BP list or section list never varies with traits, skip
 Tier 2 entirely. The union with firing traits happens inside `build_pack` /
 `resolve_bp_paths` — callers don't need to know about the split.
+
+## Pre-scaffolding (Stage 9a, skill-references-scaffolder only)
+
+`skill-references-scaffolder` is a verifier — it walks an existing target
+skill directory and lints its references/ tree. In driver mode, the target
+skill does not yet exist. The driver therefore pre-scaffolds the target tree
+from the spec before invoking the sub-skill: empty `references/<name>.md`
+files (one per spec entry under "Reference exemplars") plus a stub
+`SKILL.md` containing one canonical `Read references/<name>.md for ...` line
+per entry. The sub-skill then verifies the populated tree.
+
+The `prescaffold_references()` helper performs this. The Phase 5 director
+calls it before invoking the sub-skill. The `--prescaffold-references` CLI
+mode exposes it for direct testing.
+
+The `--target-skill-dir <dir>` CLI flag (and matching `target_skill_dir`
+parameter on `build_pack`) appends a `## Target skill directory` block to
+`input.md`, supplying the sub-skill with the absolute path to walk.
 """
 from __future__ import annotations
 
@@ -71,6 +94,20 @@ _SUB_SKILL_BPS: dict[str, list[str]] = {
     "skill-phase-designer": [
         "bp-010-apply-once-carry-forward.md",
     ],
+    # Stage 9a: BP-007 (cited-on-demand) + BP-008 (one-level-deep) always
+    # ship for refs-scaffolder. BP-009 (parallel folders) only when has_phases
+    # also fires — see _SUB_SKILL_CONDITIONAL_BPS.
+    "skill-references-scaffolder": [
+        "bp-007-references-loaded-on-demand.md",
+        "bp-008-references-one-level-deep.md",
+    ],
+    # Stage 9a: BP-022 is the cron-observability contract; BP-021 (output
+    # home `~/Claude/<skill>/`) is the path-shape companion. Both ship
+    # unconditionally because the sub-skill always reasons about both.
+    "skill-cron-observability": [
+        "bp-022-cron-observability.md",
+        "bp-021-output-home.md",
+    ],
 }
 
 # Conditional BPs keyed by trait; unioned into the pack when the trait fires.
@@ -84,6 +121,15 @@ _SUB_SKILL_CONDITIONAL_BPS: dict[str, dict[str, list[str]]] = {
             "bp-013-ask-user-first.md",
             "bp-015-number-questions.md",
             "bp-016-inline-question-rule.md",
+        ],
+    },
+    # Stage 9a: parallel folders rule fires only when the target skill is
+    # itself phased — i.e. when both has_references AND has_phases fire.
+    # has_references is the trigger trait for the sub-skill itself; has_phases
+    # is the conditional that pulls in BP-009.
+    "skill-references-scaffolder": {
+        "has_phases": [
+            "bp-009-parallel-folders.md",
         ],
     },
 }
@@ -112,6 +158,30 @@ _SUB_SKILL_SECTIONS: dict[str, list[str]] = {
         "Happy-path walkthrough",
         "Failure modes",
         "Existing skills to reuse",
+    ],
+    # Stage 9a: refs-scaffolder needs the spec's references list (carried as
+    # the optional "Reference exemplars" section per the spec template) plus
+    # the walkthrough so citation targets make sense in context.
+    "skill-references-scaffolder": [
+        "Company",
+        "Skill slug",
+        "One-line description",
+        "Reference exemplars",
+        "Happy-path walkthrough",
+    ],
+    # Stage 9a: cron sub-skill consumes the Scheduling section to extract
+    # cron frequency + artifact extension; Outputs to know where the
+    # artifact ultimately lands; Failure modes to mirror in the result.json
+    # `success: false` path.
+    "skill-cron-observability": [
+        "Company",
+        "Skill slug",
+        "One-line description",
+        "Inputs",
+        "Outputs",
+        "Scheduling",
+        "Happy-path walkthrough",
+        "Failure modes",
     ],
 }
 
@@ -147,6 +217,31 @@ _SUB_SKILL_OUTPUT_BLURB: dict[str, str] = {
         "Do NOT read any files not listed above. Do NOT open `patterns/` directly — "
         "the BP files you need are the ones listed above."
     ),
+    "skill-references-scaffolder": (
+        "Write into the directory containing this `input.md`:\n"
+        "- `output.md` — the scaffolder's plan: citation lines, BP-008 violations (if any), "
+        "BP-009 parallel-folder verdict (if `has_phases` fires), and orphan files (present on disk "
+        "but absent from the spec).\n"
+        "- `notes.md` — `BLOCKER:` lines if any, otherwise short informational observations.\n"
+        "\n"
+        "The driver has pre-scaffolded the target skill directory: empty `references/<name>.md` "
+        "files (one per spec entry) plus a stub `SKILL.md` with one canonical citation line per file. "
+        "Walk the populated tree and verify per the rules.\n"
+        "\n"
+        "Do NOT read any files not listed above. Do NOT open `patterns/` directly — "
+        "the BP files you need are the ones listed above."
+    ),
+    "skill-cron-observability": (
+        "Write into the directory containing this `input.md`:\n"
+        "- `instrumentation-snippet.md` — a single fenced Python block ready to paste into the "
+        "target skill's cron orchestration. Implements BP-022 Rules A–D.\n"
+        "- `output.md` — rationale wrapper: the snippet plus one sentence per rule explaining "
+        "how the snippet satisfies it.\n"
+        "- `notes.md` — `BLOCKER:` lines if any, otherwise short informational observations.\n"
+        "\n"
+        "Do NOT read any files not listed above. Do NOT open `patterns/` directly — "
+        "the BP files you need are the ones listed above."
+    ),
 }
 
 # --- Task lines per sub-skill ---
@@ -157,6 +252,14 @@ _SUB_SKILL_TASK: dict[str, str] = {
     ),
     "skill-phase-designer": (
         "Design the ## Procedure section for the target SKILL.md. Pass scripts/phase_lint.py."
+    ),
+    "skill-references-scaffolder": (
+        "Verify the pre-scaffolded references/ tree and emit the scaffolder's plan. "
+        "Pass scripts/references_lint.py against the target skill directory."
+    ),
+    "skill-cron-observability": (
+        "Generate a BP-022-compliant instrumentation snippet for the target cron skill. "
+        "Pass scripts/observability_lint.py against the generated snippet."
     ),
 }
 
@@ -238,6 +341,83 @@ def resolve_bp_paths(
     return [str(patterns_root / fn) for fn in filenames]
 
 
+# --- References-list parser + pre-scaffold (Stage 9a) ---
+
+# Matches a bullet line like:  - `scoping-questions.md` — full intake checklist.
+# or:  - `frameworks-map.md` - per-problem framework map.
+# Captures the filename (must end .md) and the purpose (after em-dash or hyphen-dash).
+_REF_BULLET = re.compile(
+    r"^\s*[-*]\s+`(?P<name>[a-z0-9][a-z0-9._-]*\.md)`\s*[—\-–]\s*(?P<purpose>.+?)\s*$",
+    re.MULTILINE,
+)
+
+
+def parse_reference_exemplars(section_text: str | None) -> list[tuple[str, str]]:
+    """Parse a "Reference exemplars" section body into [(filename, purpose), ...].
+    Filenames must be backtick-wrapped and end in `.md`. Purpose follows an
+    em-dash or hyphen-dash separator. Empty section or no matches → empty list."""
+    if not section_text:
+        return []
+    matches = _REF_BULLET.findall(section_text)
+    return [(name, purpose.strip()) for name, purpose in matches]
+
+
+def prescaffold_references(spec_path: Path, target_skill_dir: Path) -> list[tuple[str, str]]:
+    """Pre-scaffold the target skill dir from the spec's "Reference exemplars".
+
+    Creates `target_skill_dir/references/<name>.md` (empty placeholder, single
+    `# <stem>` header) for each entry, plus `target_skill_dir/SKILL.md` (stub
+    with frontmatter + a `## References` section that contains one canonical
+    `Read references/<name>.md for <purpose>.` line per entry).
+
+    Returns the parsed reference list so callers can verify what was scaffolded.
+
+    No-op (returns []) if the spec has no "Reference exemplars" section. The
+    caller decides whether that is a BLOCKER (e.g., `has_references` fired but
+    spec excerpt has no list) or simply skips pre-scaffolding (sub-skill is not
+    being invoked)."""
+    spec_text = spec_path.read_text(encoding="utf-8")
+    sections = parse_spec_sections(spec_text)
+    refs = parse_reference_exemplars(sections.get("Reference exemplars"))
+
+    if not refs:
+        return []
+
+    refs_dir = target_skill_dir / "references"
+    refs_dir.mkdir(parents=True, exist_ok=True)
+
+    for name, _purpose in refs:
+        ref_path = refs_dir / name
+        if not ref_path.exists():
+            stem = ref_path.stem
+            ref_path.write_text(f"# {stem}\n\nPlaceholder for spec entry `{name}`.\n", encoding="utf-8")
+
+    # Strip trailing punctuation from the spec-supplied purpose so we can append
+    # our own period without producing "first.." double-periods. (Spec entries
+    # often end in '.' since they read as natural sentences.)
+    citation_lines = "\n".join(
+        f"- Read `references/{name}` for {purpose.rstrip('.!?').rstrip()}." for name, purpose in refs
+    )
+    skill_md = target_skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        # Stub frontmatter (factory will overwrite via skill-frontmatter sub-skill;
+        # this is just enough for the references-scaffolder lint to walk a valid file).
+        skill_md.write_text(
+            "---\n"
+            "name: scaffolded-skill-stub\n"
+            "description: Placeholder. Overwritten by skill-frontmatter Phase 3.\n"
+            "---\n"
+            "\n"
+            "# scaffolded-skill-stub\n"
+            "\n"
+            "## References\n"
+            f"{citation_lines}\n",
+            encoding="utf-8",
+        )
+
+    return refs
+
+
 # --- Main pack builder ---
 
 
@@ -247,6 +427,7 @@ def build_pack(
     sub_skill_name: str,
     out_dir: Path,
     patterns_root: Path,
+    target_skill_dir: Path | None = None,
 ) -> Path:
     if sub_skill_name not in _SUB_SKILL_BPS:
         raise ValueError(
@@ -299,6 +480,14 @@ def build_pack(
     traits_block = render_traits_block(classifier, invoked_slugs)
     bp_paths = resolve_bp_paths(sub_skill_name, patterns_root, firing_traits)
 
+    target_block = ""
+    if target_skill_dir is not None:
+        target_block = (
+            "\n"
+            "## Target skill directory\n"
+            f"{target_skill_dir}\n"
+        )
+
     pack = (
         f"# Input pack — {sub_skill_name}\n"
         "\n"
@@ -316,6 +505,7 @@ def build_pack(
         "\n"
         "## BPs to enforce\n"
         + "\n".join(f"- {p}" for p in bp_paths) + "\n"
+        f"{target_block}"
         "\n"
         "## Output locations\n"
         f"{_SUB_SKILL_OUTPUT_BLURB[sub_skill_name]}\n"
@@ -333,13 +523,32 @@ def build_pack(
 _DEFAULT_PATTERNS_ROOT = Path(__file__).resolve().parent.parent.parent / "patterns"
 
 
+_USAGE = (
+    "usage:\n"
+    "  build_context_pack.py <spec-path> <classifier-json> <sub-skill-name> "
+    "<out-dir> [--patterns-root <dir>] [--target-skill-dir <dir>]\n"
+    "  build_context_pack.py --prescaffold-references <spec-path> <target-skill-dir>"
+)
+
+
 def _main(argv: list[str]) -> int:
+    # --- Stage 9a: pre-scaffold mode ---
+    if len(argv) >= 2 and argv[1] == "--prescaffold-references":
+        if len(argv) < 4:
+            print(_USAGE, file=sys.stderr)
+            return 2
+        spec_path = Path(argv[2]).expanduser().resolve()
+        target_skill_dir = Path(argv[3]).expanduser().resolve()
+        if not spec_path.is_file():
+            print(f"error: spec not found: {spec_path}", file=sys.stderr)
+            return 2
+        refs = prescaffold_references(spec_path, target_skill_dir)
+        print(json.dumps({"scaffolded": [name for name, _ in refs]}))
+        return 0
+
+    # --- Default: pack-build mode ---
     if len(argv) < 5:
-        print(
-            "usage: build_context_pack.py <spec-path> <classifier-json> "
-            "<sub-skill-name> <out-dir> [--patterns-root <dir>]",
-            file=sys.stderr,
-        )
+        print(_USAGE, file=sys.stderr)
         return 2
 
     spec_path = Path(argv[1]).expanduser().resolve()
@@ -352,6 +561,12 @@ def _main(argv: list[str]) -> int:
         i = argv.index("--patterns-root")
         if i + 1 < len(argv):
             patterns_root = Path(argv[i + 1]).expanduser().resolve()
+
+    target_skill_dir: Path | None = None
+    if "--target-skill-dir" in argv:
+        i = argv.index("--target-skill-dir")
+        if i + 1 < len(argv):
+            target_skill_dir = Path(argv[i + 1]).expanduser().resolve()
 
     if not spec_path.is_file():
         print(f"error: spec not found: {spec_path}", file=sys.stderr)
@@ -367,6 +582,7 @@ def _main(argv: list[str]) -> int:
             sub_skill_name=sub_skill_name,
             out_dir=out_dir,
             patterns_root=patterns_root,
+            target_skill_dir=target_skill_dir,
         )
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)

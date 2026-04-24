@@ -455,5 +455,276 @@ class TestStage7bAuditRegressions(unittest.TestCase):
         self.assertIn("skill-phase-designer", str(cm.exception))
 
 
+class TestStage9aWiring(unittest.TestCase):
+    """Stage 9a: registration + pack-shape + pre-scaffold for the two
+    Wave-3 sub-skills wired into the driver (skill-references-scaffolder,
+    skill-cron-observability)."""
+
+    # ---------- Registration checks ----------
+
+    def test_refs_scaffolder_registered_in_all_4_tier1_dicts(self):
+        """Tier-1 cheat-sheet contract: every sub-skill must appear in all
+        4 always-edit dicts. Skipping one silently breaks pack materialization."""
+        for registry in (
+            bcp._SUB_SKILL_BPS,
+            bcp._SUB_SKILL_SECTIONS,
+            bcp._SUB_SKILL_OUTPUT_BLURB,
+            bcp._SUB_SKILL_TASK,
+        ):
+            self.assertIn("skill-references-scaffolder", registry)
+
+    def test_cron_observability_registered_in_all_4_tier1_dicts(self):
+        for registry in (
+            bcp._SUB_SKILL_BPS,
+            bcp._SUB_SKILL_SECTIONS,
+            bcp._SUB_SKILL_OUTPUT_BLURB,
+            bcp._SUB_SKILL_TASK,
+        ):
+            self.assertIn("skill-cron-observability", registry)
+
+    # ---------- BP path resolution ----------
+
+    def test_resolve_bp_paths_refs_scaffolder_base(self):
+        """No traits → BP-007 + BP-008 only (BP-009 is conditional)."""
+        paths = bcp.resolve_bp_paths(
+            "skill-references-scaffolder", PATTERNS_ROOT, firing_traits=None
+        )
+        names = [Path(p).name for p in paths]
+        self.assertEqual(
+            names,
+            [
+                "bp-007-references-loaded-on-demand.md",
+                "bp-008-references-one-level-deep.md",
+            ],
+        )
+
+    def test_resolve_bp_paths_refs_scaffolder_with_has_phases(self):
+        """has_phases trait → BP-009 unioned in (after the base BPs, in
+        declaration order)."""
+        paths = bcp.resolve_bp_paths(
+            "skill-references-scaffolder", PATTERNS_ROOT, firing_traits=["has_phases"]
+        )
+        names = [Path(p).name for p in paths]
+        self.assertEqual(
+            names,
+            [
+                "bp-007-references-loaded-on-demand.md",
+                "bp-008-references-one-level-deep.md",
+                "bp-009-parallel-folders.md",
+            ],
+        )
+
+    def test_resolve_bp_paths_cron_observability_unaffected_by_traits(self):
+        """cron has no _SUB_SKILL_CONDITIONAL_BPS entry — same BPs regardless
+        of which traits fire."""
+        base = bcp.resolve_bp_paths(
+            "skill-cron-observability", PATTERNS_ROOT, firing_traits=None
+        )
+        with_phases = bcp.resolve_bp_paths(
+            "skill-cron-observability", PATTERNS_ROOT, firing_traits=["has_phases", "has_hitl"]
+        )
+        self.assertEqual(base, with_phases)
+        names = [Path(p).name for p in base]
+        # BP-022 + BP-021 always — BP-022 listed first (the contract-defining BP)
+        self.assertEqual(
+            names,
+            [
+                "bp-022-cron-observability.md",
+                "bp-021-output-home.md",
+            ],
+        )
+
+    # ---------- Reference-exemplars parser ----------
+
+    def test_parse_reference_exemplars_extracts_filename_and_purpose(self):
+        body = textwrap.dedent("""
+            - `scoping-questions.md` — full intake checklist to ask the client.
+            - `frameworks-map.md` — per-problem framework map.
+            - `anti-patterns.md` — canonical failure-mode catalog.
+        """).strip()
+        refs = bcp.parse_reference_exemplars(body)
+        self.assertEqual(len(refs), 3)
+        self.assertEqual(refs[0], ("scoping-questions.md", "full intake checklist to ask the client."))
+        self.assertEqual(refs[2][0], "anti-patterns.md")
+
+    def test_parse_reference_exemplars_handles_empty(self):
+        self.assertEqual(bcp.parse_reference_exemplars(None), [])
+        self.assertEqual(bcp.parse_reference_exemplars(""), [])
+        self.assertEqual(bcp.parse_reference_exemplars("no bullets here"), [])
+
+    # ---------- Pre-scaffold helper ----------
+
+    def test_prescaffold_references_creates_placeholder_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            spec = tmp / "spec.md"
+            spec.write_text(textwrap.dedent("""
+                # Spec
+                ## Company
+                acme
+                ## Skill slug
+                test-skill
+                ## Reference exemplars
+                - `intake.md` — questions to ask first.
+                - `frameworks.md` — strategy frameworks
+                - `glossary.md` — domain terminology!
+            """).strip(), encoding="utf-8")
+
+            target = tmp / "scaffolded"
+            refs = bcp.prescaffold_references(spec, target)
+
+            self.assertEqual([n for n, _ in refs], ["intake.md", "frameworks.md", "glossary.md"])
+            self.assertTrue((target / "references" / "intake.md").is_file())
+            self.assertTrue((target / "references" / "frameworks.md").is_file())
+            self.assertTrue((target / "references" / "glossary.md").is_file())
+            self.assertTrue((target / "SKILL.md").is_file())
+
+            skill_text = (target / "SKILL.md").read_text(encoding="utf-8")
+            # Stub frontmatter + canonical citations. All three citation lines
+            # must end in a SINGLE trailing period — neither doubled (when the
+            # spec purpose already ended in `.`) nor missing (when it didn't).
+            self.assertIn("name: scaffolded-skill-stub", skill_text)
+            self.assertIn("Read `references/intake.md` for questions to ask first.", skill_text)
+            self.assertNotIn("Read `references/intake.md` for questions to ask first..", skill_text)
+            self.assertIn("Read `references/frameworks.md` for strategy frameworks.", skill_text)
+            self.assertIn("Read `references/glossary.md` for domain terminology.", skill_text)
+
+    def test_prescaffold_references_no_section_returns_empty(self):
+        """Spec without a Reference exemplars section → no-op, returns []."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            spec = tmp / "spec.md"
+            spec.write_text("## Company\nacme\n", encoding="utf-8")
+            refs = bcp.prescaffold_references(spec, tmp / "scaffolded")
+            self.assertEqual(refs, [])
+            # No directories created when there's nothing to scaffold
+            self.assertFalse((tmp / "scaffolded" / "references").exists())
+
+    # ---------- target_skill_dir block in pack ----------
+
+    def test_target_skill_dir_block_appears_when_provided(self):
+        """When build_pack receives target_skill_dir, the materialized
+        input.md gets a `## Target skill directory` block between BPs and
+        Output locations."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            spec = tmp / "spec.md"
+            spec.write_text(textwrap.dedent("""
+                # Spec
+                ## Company
+                acme
+                ## Skill slug
+                test
+                ## One-line description
+                Does X.
+                ## Trigger phrases
+                - run X
+                ## Inputs
+                None.
+                ## Outputs
+                A thing.
+                ## Happy-path walkthrough
+                1. Read input.
+                ## Reference exemplars
+                - `notes.md` — a note.
+            """).strip(), encoding="utf-8")
+            classifier = tmp / "classifier.json"
+            classifier.write_text(json.dumps({
+                "traits": {
+                    "has_references": {"fires": True},
+                    "has_phases": {"fires": False},
+                    "has_hitl": {"fires": False},
+                    "is_scheduled": {"fires": False},
+                    "invokes_skills": {"fires": False},
+                }
+            }), encoding="utf-8")
+            out_dir = tmp / "phase05"
+            target = tmp / "scaffolded"
+
+            input_md = bcp.build_pack(
+                spec_path=spec,
+                classifier_path=classifier,
+                sub_skill_name="skill-references-scaffolder",
+                out_dir=out_dir,
+                patterns_root=PATTERNS_ROOT,
+                target_skill_dir=target,
+            )
+            text = input_md.read_text(encoding="utf-8")
+            self.assertIn("## Target skill directory", text)
+            self.assertIn(str(target), text)
+            # Block ordering: appears between BPs and Output locations
+            bps_pos = text.index("## BPs to enforce")
+            target_pos = text.index("## Target skill directory")
+            output_pos = text.index("## Output locations")
+            self.assertTrue(bps_pos < target_pos < output_pos)
+
+    def test_target_skill_dir_block_omitted_by_default(self):
+        """When build_pack is called without target_skill_dir, no
+        `## Target skill directory` block appears (preserves backward compat
+        for skill-frontmatter / skill-phase-designer wiring)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            spec = tmp / "spec.md"
+            spec.write_text(textwrap.dedent("""
+                # Spec
+                ## Company
+                acme
+                ## Skill slug
+                t
+                ## One-line description
+                X.
+                ## Trigger phrases
+                - run
+                ## Inputs
+                None.
+                ## Outputs
+                A.
+                ## Happy-path walkthrough
+                1. Step.
+                ## Anti-goals
+                None.
+            """).strip(), encoding="utf-8")
+            classifier = tmp / "classifier.json"
+            classifier.write_text(json.dumps({"traits": {}}), encoding="utf-8")
+            out_dir = tmp / "phase03"
+
+            input_md = bcp.build_pack(
+                spec_path=spec,
+                classifier_path=classifier,
+                sub_skill_name="skill-frontmatter",
+                out_dir=out_dir,
+                patterns_root=PATTERNS_ROOT,
+            )
+            text = input_md.read_text(encoding="utf-8")
+            self.assertNotIn("## Target skill directory", text)
+
+    # ---------- CLI integration ----------
+
+    def test_cli_prescaffold_references_mode(self):
+        """`build_context_pack.py --prescaffold-references <spec> <target>`
+        creates the placeholder tree and prints {"scaffolded": [...]} JSON."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            spec = tmp / "spec.md"
+            spec.write_text(textwrap.dedent("""
+                ## Reference exemplars
+                - `a.md` — first.
+                - `b.md` — second.
+            """).strip(), encoding="utf-8")
+            target = tmp / "target"
+
+            result = subprocess.run(
+                [sys.executable, str(SCRIPTS / "build_context_pack.py"),
+                 "--prescaffold-references", str(spec), str(target)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout.strip())
+            self.assertEqual(payload, {"scaffolded": ["a.md", "b.md"]})
+            self.assertTrue((target / "references" / "a.md").is_file())
+            self.assertTrue((target / "references" / "b.md").is_file())
+            self.assertTrue((target / "SKILL.md").is_file())
+
+
 if __name__ == "__main__":
     unittest.main()

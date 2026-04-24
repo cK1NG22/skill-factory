@@ -32,9 +32,9 @@ not inline phase logic here.
 Pick a working directory under `~/Claude/skill-factory/<company>-<slug>/`.
 All phase outputs land under `<work>/phases/NN-<sub-skill>/`.
 
-The factory is 5 sequential phases (pre-Wave-3). Each phase has its
-own director under `phases/<N>-<name>/director.md`. Read the phase
-director when entering that phase — do not inline its logic here.
+The factory is 7 sequential phases. Each phase has its own director
+under `phases/<N>-<name>/director.md`. Read the phase director when
+entering that phase — do not inline its logic here.
 
 ### Step 1 — Enter Phase 1 (input gate, always fires)
 
@@ -57,14 +57,25 @@ Check `has_phases.fires` per `references/trait-gating.md` Pattern A.
 When true, read `phases/04-skill-phase-designer/director.md` and
 execute its procedure. When false, skip to Step 5.
 
-### Step 5 — Enter Phase 99 (report and stop)
+### Step 5 — Enter Phase 5 (references-scaffolder, conditional on has_references)
+
+Check `has_references.fires` per `references/trait-gating.md` Pattern A.
+When true, read `phases/05-skill-references-scaffolder/director.md`
+and execute its procedure. When false, skip to Step 6.
+
+### Step 6 — Enter Phase 6 (cron-observability, conditional on is_scheduled)
+
+Check `is_scheduled.fires` per `references/trait-gating.md` Pattern A.
+When true, read `phases/06-skill-cron-observability/director.md` and
+execute its procedure. When false, skip to Step 7.
+
+### Step 7 — Enter Phase 99 (report and stop)
 
 Read `phases/99-report/director.md` and execute its procedure. Print
 the per-phase summary and the work directory path.
 
-Phase numbers 05, 06, 07 are reserved for Wave 3 conditional phases
-(`skill-references-scaffolder`, `skill-cron-observability`,
-`skill-signed-handoff`) landing in Stages 9a and 9b.
+Phase 07 is reserved for Stage 9b (`skill-signed-handoff`, AND-gated
+on `has_phases ∧ invokes_skills`).
 
 ## References (cross-phase)
 
@@ -85,9 +96,11 @@ references live under `phases/<N>-<name>/references/`.
 ## Scripts
 
 - **`scripts/trait_predicates.py`** — the 5-predicate classifier. CLI.
-- **`scripts/build_context_pack.py`** — Phase 3+4 pack materializer.
-  Currently supports `skill-frontmatter` and `skill-phase-designer` as
-  sub-skill targets. CLI.
+- **`scripts/build_context_pack.py`** — Phases 3/4/5/6 pack materializer.
+  Supports `skill-frontmatter`, `skill-phase-designer`,
+  `skill-references-scaffolder`, and `skill-cron-observability` as
+  sub-skill targets. Also exposes `--prescaffold-references` and
+  `--target-skill-dir` for Phase 5 pre-scaffolding (Stage 9a). CLI.
 
 ## Fixtures
 
@@ -102,10 +115,10 @@ cd ~/Projects/skill-factory/skill-factory && python3 -m unittest discover tests
 
 ## What to do if you're stuck
 
-- **Spec fails Phase 1** → the user fixes the spec per the validator's gap report, then re-runs this skill. Do not attempt to "fix" the spec yourself — spec authorship is the user's responsibility per BP-026.
+- **Spec fails Phase 1** → the user fixes the spec per the validator's gap report, then re-runs this skill. Do not edit the spec yourself — spec authorship is the user's responsibility per BP-026.
 - **`trait_predicates.py` raises an exception** → write `BLOCKER: trait_predicates.py raised <exception>` to `notes.md` per BP-028 and exit. Do not classify with default/empty values.
 - **A trait verdict seems wrong for a given spec** → run `python3 scripts/trait_predicates.py spec <spec-path>` directly to see the `evidence` field for each verdict. Usually the evidence string explains why the predicate fired or didn't.
-- **`build_context_pack.py` raises a missing-section error** → the spec is malformed; the validator should have caught it. Re-run `/skill-spec-validator` against the spec path to see which section is missing. Do not try to patch the spec from the driver — BP-026 is the user's responsibility.
+- **`build_context_pack.py` raises a missing-section error** → the spec is malformed; the validator should have caught it. Re-run `/skill-spec-validator` against the spec path to see which section is missing. Do not patch the spec from the driver — BP-026 is the user's responsibility.
 - **A sub-skill writes a `BLOCKER:` line to `notes.md`** → surface it to the user verbatim per `references/spawn-subagent.md`. Do NOT retry the sub-skill; sub-skill BLOCKERs are BP-028 double-fail hard stops.
 - **User asks for a Wave 3 capability that hasn't shipped** → redirect to the current delivery: frontmatter + phase-design hands-off. Wave 3 adds references-scaffolder, cron-observability, and signed-handoff.
 
