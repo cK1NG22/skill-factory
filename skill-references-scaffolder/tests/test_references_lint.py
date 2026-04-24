@@ -508,6 +508,227 @@ class TestStage904TwoLevelHierarchy(unittest.TestCase):
             )
 
 
+class TestStage906StrictCitationWalk(unittest.TestCase):
+    """Tests for --strict-two-level introduced in Stage 9.0.6.
+
+    Strict mode closes the warn-only window that 9.0.4 opened. It enforces
+    citation topology on top of the structural rules:
+
+      1. Each phase-scoped ref under `phases/<N>/references/<file>.md` MUST
+         be cited from `phases/<N>/director.md` (its own phase's director).
+      2. Each cross-phase ref under top-level `references/<file>.md` MUST
+         be cited from SKILL.md OR from ≥2 phase directors (otherwise it's
+         orphan — either it belongs under a single phase or it's dead code).
+
+    `--strict-two-level` implies `--two-level` as a convenience.
+    """
+
+    def _canonical_two_level_skill(self, td: Path) -> Path:
+        """Build a minimal two-level tree that satisfies strict mode:
+        - one cross-phase ref cited from SKILL.md
+        - two phase-scoped refs each cited by their own director
+        """
+        return _make_skill(td, {
+            "SKILL.md": textwrap.dedent("""
+                # driver
+                Read `references/shared.md` for the shared mechanic.
+                See `phases/01/director.md` for phase 1.
+                See `phases/02/director.md` for phase 2.
+            """).strip(),
+            "references/shared.md": "# shared\n",
+            "phases/01/director.md": "# phase 1\nRead `references/one.md` for the phase-1 detail.\n",
+            "phases/01/references/one.md": "# one\n",
+            "phases/02/director.md": "# phase 2\nRead `references/two.md` for the phase-2 detail.\n",
+            "phases/02/references/two.md": "# two\n",
+        })
+
+    def test_strict_happy_path_passes(self):
+        with tempfile.TemporaryDirectory() as td:
+            skill = self._canonical_two_level_skill(Path(td))
+            result = rl.lint_paths(
+                skill, has_references=True, has_phases=True,
+                two_level=True, strict_two_level=True,
+            )
+            self.assertTrue(result.passed, result.fails)
+            # info line should report how many directors were walked.
+            self.assertTrue(
+                any("strict citation-walk" in i and "2 phase director" in i
+                    for i in result.info),
+                result.info,
+            )
+
+    def test_strict_phase_scoped_ref_not_cited_by_own_director_fails(self):
+        # phase-1 has a scoped ref, but phase-1/director.md doesn't cite it.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                "SKILL.md": "# s\nRead `references/shared.md` for shared.\nSee `phases/01/director.md`.\n",
+                "references/shared.md": "# shared\n",
+                "phases/01/director.md": "# phase 1\nNothing cited here.\n",
+                "phases/01/references/orphan.md": "# orphan\n",
+            })
+            result = rl.lint_paths(
+                skill, has_references=True, has_phases=True,
+                two_level=True, strict_two_level=True,
+            )
+            self.assertFalse(result.passed)
+            self.assertTrue(
+                any("phase-scoped ref" in f and "orphan.md" in f
+                    and "director.md" in f for f in result.fails),
+                result.fails,
+            )
+
+    def test_strict_phase_scoped_ref_cited_only_from_skill_md_fails(self):
+        # SKILL.md citing a phase-scoped ref does NOT rescue it. The own
+        # phase director is the only valid citer under strict mode.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                "SKILL.md": textwrap.dedent("""
+                    # driver
+                    Read `phases/01/references/leaked.md` for something.
+                    See `phases/01/director.md`.
+                """).strip(),
+                "phases/01/director.md": "# phase 1\nNo citations here.\n",
+                "phases/01/references/leaked.md": "# leaked\n",
+            })
+            result = rl.lint_paths(
+                skill, has_references=True, has_phases=True,
+                two_level=True, strict_two_level=True,
+            )
+            self.assertFalse(result.passed)
+            self.assertTrue(
+                any("phase-scoped ref" in f and "leaked.md" in f
+                    for f in result.fails),
+                result.fails,
+            )
+
+    def test_strict_cross_phase_ref_orphan_fails(self):
+        # references/unused.md exists but is cited from neither SKILL.md
+        # nor from any phase director.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                "SKILL.md": "# driver\nSee `phases/01/director.md`.\n",
+                "references/unused.md": "# unused\n",
+                "phases/01/director.md": "# phase 1\nNo ref mentions.\n",
+            })
+            result = rl.lint_paths(
+                skill, has_references=True, has_phases=True,
+                two_level=True, strict_two_level=True,
+            )
+            self.assertFalse(result.passed)
+            # BP-007 ALSO fails (uncited from SKILL.md); we only assert that
+            # the strict-mode orphan fail is also present with its own wording.
+            self.assertTrue(
+                any("cross-phase ref" in f and "orphan under strict two-level"
+                    in f for f in result.fails),
+                result.fails,
+            )
+
+    def test_strict_cross_phase_ref_cited_from_two_directors_passes(self):
+        # Shared ref cited from 2 phase directors (not SKILL.md) satisfies
+        # the ≥2-directors disjunct.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                # SKILL.md cites shared.md with a canonical verb so Rule B passes.
+                "SKILL.md": textwrap.dedent("""
+                    # driver
+                    Read `references/shared.md` for the shared mechanic.
+                    See `phases/01/director.md`.
+                    See `phases/02/director.md`.
+                """).strip(),
+                "references/shared.md": "# shared\n",
+                "phases/01/director.md": "# phase 1\nSee `references/shared.md` for the shared detail.\n",
+                "phases/02/director.md": "# phase 2\nSee `references/shared.md` for the shared detail.\n",
+            })
+            result = rl.lint_paths(
+                skill, has_references=True, has_phases=True,
+                two_level=True, strict_two_level=True,
+            )
+            self.assertTrue(result.passed, result.fails)
+
+    def test_strict_cross_phase_ref_cited_from_single_director_fails(self):
+        # Exactly 1 phase director citing (not SKILL.md) → below the ≥2
+        # threshold → orphan fail. This guards the boundary on the disjunct.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                # SKILL.md still needs to satisfy Rule B so the orphan fail
+                # we're asserting is the strict-mode one, not the BP-007 one.
+                # Cite `solo.md` loosely (non-canonical) so BP-007 doesn't fire
+                # "uncited" but the canonical-citation check in strict mode
+                # still sees it as "not cited from SKILL.md".
+                #
+                # Actually _citations_in uses the loose regex, so ANY mention
+                # in SKILL.md counts as "cited from SKILL.md" under strict
+                # mode. To make this test isolate the "single-director"
+                # boundary, keep SKILL.md silent on solo.md and accept the
+                # BP-007 uncited fail as a co-occurrence.
+                "SKILL.md": "# driver\nSee `phases/01/director.md`.\n",
+                "references/solo.md": "# solo\n",
+                "phases/01/director.md": "# phase 1\nSee `references/solo.md` for detail.\n",
+            })
+            result = rl.lint_paths(
+                skill, has_references=True, has_phases=True,
+                two_level=True, strict_two_level=True,
+            )
+            self.assertFalse(result.passed)
+            self.assertTrue(
+                any("cross-phase ref" in f and "solo.md" in f
+                    and "orphan under strict two-level" in f
+                    for f in result.fails),
+                result.fails,
+            )
+
+    def test_strict_default_off_warn_mode_accepts_same_topology(self):
+        # The same topology that fails under strict mode must pass under
+        # warn-only mode (strict_two_level=False). Regression guard on the
+        # behavior-change semantics of the flag.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                "SKILL.md": "# driver\nRead `references/shared.md` for shared.\nSee `phases/01/director.md`.\n",
+                "references/shared.md": "# shared\n",
+                "phases/01/director.md": "# phase 1\nNo citations here.\n",
+                "phases/01/references/orphan.md": "# orphan\n",
+            })
+            # warn-only: no strict_two_level → no strict fails
+            warn_result = rl.lint_paths(
+                skill, has_references=True, has_phases=True,
+                two_level=True, strict_two_level=False,
+            )
+            self.assertTrue(
+                all("strict" not in f for f in warn_result.fails),
+                warn_result.fails,
+            )
+            # strict-on: same topology now fails.
+            strict_result = rl.lint_paths(
+                skill, has_references=True, has_phases=True,
+                two_level=True, strict_two_level=True,
+            )
+            self.assertFalse(strict_result.passed)
+
+    def test_cli_strict_two_level_flag_implies_two_level(self):
+        # `--strict-two-level` alone (without `--two-level`) should still
+        # work because strict implies two-level.
+        with tempfile.TemporaryDirectory() as td:
+            skill = self._canonical_two_level_skill(Path(td))
+            script = SCRIPTS / "references_lint.py"
+            proc = subprocess.run(
+                [sys.executable, str(script), str(skill),
+                 "--has-references", "--has-phases", "--strict-two-level"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            out = json.loads(proc.stdout)
+            self.assertTrue(out["passed"], out["fails"])
+            # The two-level info line appears because strict implies two-level.
+            self.assertTrue(
+                any("two-level hierarchy detected" in i for i in out["info"]),
+                out["info"],
+            )
+            self.assertTrue(
+                any("strict citation-walk" in i for i in out["info"]),
+                out["info"],
+            )
+
+
 # ---------- End-to-end on real fixtures ----------
 
 

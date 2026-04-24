@@ -6,7 +6,7 @@ how its SKILL.md cites reference files, plus parallel-folder structure.
 Implements the 3 rules in references/references-rules.md. Pure stdlib.
 
 Usage:
-    python3 references_lint.py <skill-dir-or-input.md> [--has-references] [--has-phases] [--two-level]
+    python3 references_lint.py <skill-dir-or-input.md> [--has-references] [--has-phases] [--two-level] [--strict-two-level]
     python3 references_lint.py - --skill-dir <dir> [flags]   # read SKILL.md from stdin, inspect dir
 
 Rule A (BP-008, universal when a `references/` folder exists):
@@ -25,10 +25,16 @@ Rule C (BP-009, only when --has-phases):
     When `--two-level` is ALSO set, `phases/<N>/references/` nesting is the
     canonical two-level director hierarchy (Stage 9 factory pattern) and is
     accepted; the lint emits an info line counting phase-scoped references/
-    directories. Strict citation-walk enforcement (phase-scoped refs must be
-    cited from exactly their phase director; cross-phase refs from SKILL.md
-    or ≥2 phase directors) is deferred to Stage 9.0.6's strict-mode flip.
-    Missing `assets/` emits a warn (not fail) — `assets/` is optional.
+    directories. Missing `assets/` emits a warn (not fail) — `assets/` is optional.
+
+Strict citation-walk (Stage 9.0.6, only when --strict-two-level):
+    `--strict-two-level` implies `--two-level` and adds citation topology
+    enforcement on top of the structural rules:
+      - Phase-scoped ref at `phases/<N>/references/<file>.md` MUST be cited
+        from `phases/<N>/director.md` (its own phase director).
+      - Cross-phase ref at `references/<file>.md` MUST be cited from SKILL.md
+        OR from ≥2 phase directors (otherwise orphan — either demote to a
+        single phase or cite from SKILL.md).
 
 Exit codes:
     0 — lint passes
@@ -131,6 +137,98 @@ def _find_nested_parallel_violations(skill_dir: Path) -> list[str]:
     return sorted(set(hits))
 
 
+def _walk_phase_directors(skill_dir: Path) -> list[Path]:
+    """Return all `phases/<N>-<name>/director.md` files in the skill tree.
+    Used by strict two-level citation enforcement (Stage 9.0.6+)."""
+    phases_dir = skill_dir / "phases"
+    if not phases_dir.is_dir():
+        return []
+    directors: list[Path] = []
+    for phase_dir in sorted(phases_dir.iterdir()):
+        if not phase_dir.is_dir():
+            continue
+        director = phase_dir / "director.md"
+        if director.is_file():
+            directors.append(director)
+    return directors
+
+
+def _check_two_level_citations(skill_dir: Path, skill_md_text: str) -> tuple[list[str], list[str]]:
+    """Stage 9.0.6 strict-mode two-level citation walk.
+
+    Returns (fails, info) lists.
+
+    Enforces:
+      1. Each phase-scoped reference at `phases/<N>-<name>/references/<file>.md`
+         MUST be cited from `phases/<N>-<name>/director.md`. Miscitation from
+         SKILL.md or from another phase's director is a fail.
+      2. Each cross-phase reference at top-level `references/<file>.md` MUST
+         be cited either from SKILL.md OR from ≥2 phase directors. Otherwise
+         fails as an orphan (must demote to phase-scoped, or cite from SKILL.md).
+
+    Bare existence of `phases/<N>/references/<file>.md` is OK — the rule is
+    about citation topology, not about whether the file exists at all.
+    """
+    fails: list[str] = []
+    info: list[str] = []
+
+    directors = _walk_phase_directors(skill_dir)
+    # Map: phase_dir path → set of references cited by that director.
+    director_citations: dict[Path, set[str]] = {}
+    for d in directors:
+        try:
+            text = d.read_text(encoding="utf-8")
+        except OSError:
+            text = ""
+        director_citations[d] = _citations_in(text)
+
+    skill_citations = _citations_in(skill_md_text)
+
+    # Rule 1: phase-scoped refs cited by their own director only.
+    for phase_dir in sorted((skill_dir / "phases").iterdir()) if (skill_dir / "phases").is_dir() else []:
+        if not phase_dir.is_dir():
+            continue
+        scoped_dir = phase_dir / "references"
+        if not scoped_dir.is_dir():
+            continue
+        own_director = phase_dir / "director.md"
+        own_citations = director_citations.get(own_director, set())
+        for ref_file in sorted(scoped_dir.glob("*.md")):
+            ref_name = ref_file.name
+            if ref_name not in own_citations:
+                fails.append(
+                    f"two-level: phase-scoped ref {ref_file.relative_to(skill_dir)} "
+                    f"not cited from {own_director.relative_to(skill_dir)}. "
+                    f"Phase-scoped refs MUST be cited by their own phase director."
+                )
+
+    # Rule 2: cross-phase refs cited from SKILL.md OR ≥2 phase directors.
+    cross_phase_refs_dir = skill_dir / "references"
+    if cross_phase_refs_dir.is_dir():
+        for ref_file in sorted(cross_phase_refs_dir.glob("*.md")):
+            ref_name = ref_file.name
+            cited_in_skill_md = ref_name in skill_citations
+            phase_director_citers = [
+                d for d, cites in director_citations.items()
+                if ref_name in cites
+            ]
+            if cited_in_skill_md:
+                continue  # cited from SKILL.md = OK
+            if len(phase_director_citers) >= 2:
+                continue  # shared across ≥2 phase directors = OK
+            fails.append(
+                f"two-level: cross-phase ref references/{ref_name} is "
+                f"orphan under strict two-level. Cite it from SKILL.md, OR "
+                f"from ≥2 phase directors, OR demote to phase-scoped."
+            )
+
+    if directors:
+        info.append(
+            f"two-level strict citation-walk: {len(directors)} phase director(s) inspected"
+        )
+    return fails, info
+
+
 def _detect_inline_content_blocks(skill_md_text: str) -> list[tuple[int, int]]:
     """Return (start_line, end_line) spans of inline content that looks like
     it belongs in a reference file. A span is:
@@ -199,6 +297,7 @@ def lint_paths(
     has_references: bool = False,
     has_phases: bool = False,
     two_level: bool = False,
+    strict_two_level: bool = False,
 ) -> LintResult:
     result = LintResult()
 
@@ -345,6 +444,17 @@ def lint_paths(
         else:
             result.info.append("assets/ directory present at skill root")
 
+    # ------------------------------------------------------------------
+    # Stage 9.0.6 — strict two-level citation walk (only when
+    # --two-level AND --strict-two-level)
+    # ------------------------------------------------------------------
+    if two_level and strict_two_level:
+        strict_fails, strict_info = _check_two_level_citations(
+            skill_dir, skill_md_text,
+        )
+        result.fails.extend(strict_fails)
+        result.info.extend(strict_info)
+
     return result
 
 
@@ -371,7 +481,8 @@ def _main(argv: list[str]) -> int:
     if not args:
         print(
             "usage: references_lint.py <skill-dir-or-SKILL.md> "
-            "[--has-references] [--has-phases] [--two-level]",
+            "[--has-references] [--has-phases] [--two-level] "
+            "[--strict-two-level]",
             file=sys.stderr,
         )
         return 2
@@ -379,6 +490,10 @@ def _main(argv: list[str]) -> int:
     has_references = "--has-references" in args[1:]
     has_phases = "--has-phases" in args[1:]
     two_level = "--two-level" in args[1:]
+    strict_two_level = "--strict-two-level" in args[1:]
+    # --strict-two-level implies --two-level (convenience: can't be strict without it).
+    if strict_two_level and not two_level:
+        two_level = True
     try:
         skill_dir, override_text = _resolve_target(target)
     except FileNotFoundError as exc:
@@ -390,6 +505,7 @@ def _main(argv: list[str]) -> int:
         has_references=has_references,
         has_phases=has_phases,
         two_level=two_level,
+        strict_two_level=strict_two_level,
     )
     print(json.dumps(result.to_dict(), indent=2))
     return 0 if result.passed else 1

@@ -131,9 +131,27 @@ skill-foo/
 **Lint behaviour WITH `--two-level` AND `--has-phases`:**
 - `phases/<N>/references/` nesting is accepted; lint emits an info line counting the scoped refs dirs.
 - `references/<X>/phases/` (reversed nesting) remains a hard fail — two-level legitimizes one direction only.
-- Strict citation-walk enforcement (phase-scoped refs must be cited from exactly their phase director; cross-phase refs from SKILL.md or ≥2 phase directors) is deferred to Stage 9.0.6's strict-mode flip.
 
 Leaf (non-phased) sub-skills do not use `--two-level`. BP-009 only fires on phased skills per the matrix.
+
+### Sub-rule — `--strict-two-level` citation-walk (Stage 9.0.6+)
+
+When `--strict-two-level` is set, the lint adds citation topology enforcement on top of the structural `--two-level` acceptance. `--strict-two-level` implies `--two-level` (you cannot ask for strict without two-level).
+
+**Two enforcements:**
+
+1. **Phase-scoped refs own their director.** Each `phases/<N>/references/<file>.md` MUST be cited from `phases/<N>/director.md` — the director of the same phase. SKILL.md citations of a phase-scoped ref do not rescue it; the own-phase director is the only valid citer. Rationale: phase-scoped refs encode phase-local concerns; if SKILL.md or another phase's director needs them, the ref belongs at the cross-phase level instead.
+
+2. **Cross-phase refs must be reachable.** Each `references/<file>.md` MUST be cited either from SKILL.md **or** from ≥2 phase directors. A cross-phase ref cited only from a single phase director fails as an "orphan under strict two-level" — it should either be demoted to `phases/<N>/references/` (if only that phase uses it) or promoted to SKILL.md (if it's genuinely shared).
+
+**Why ≥2 directors (not just ≥1)?** A cross-phase ref cited from exactly one phase director is misplaced — it belongs under that phase's scoped references. The ≥2 threshold is what distinguishes "genuinely shared" from "mis-organized".
+
+**Lint behaviour WITH `--strict-two-level` (in addition to `--two-level` + `--has-phases`):**
+- Strict phase-scoped fails: `two-level: phase-scoped ref phases/<N>/references/<file>.md not cited from phases/<N>/director.md …`
+- Strict cross-phase orphan fails: `two-level: cross-phase ref references/<file>.md is orphan under strict two-level …`
+- Info line reports the number of phase directors inspected by the strict walk.
+
+**Migration note:** Stage 9.0.4 landed `--two-level` in warn-only mode so the factory driver could migrate to the two-level hierarchy without lint noise masking real bugs. Stage 9.0.6 closes that window — once the factory's own tree satisfies strict-mode, client-facing phased skills should adopt `--strict-two-level` at lint time.
 
 ---
 
