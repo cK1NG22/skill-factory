@@ -1,17 +1,39 @@
 # Phase 1 — Input gate (director)
 
-> **Status: PLACEHOLDER (Stage 9.0.1).** This director has not yet been populated.
-> Content for this phase currently lives inline in `../../SKILL.md` under
-> `### Step 1 — Phase 1: Input gate`. Populated during Stage 9.0.3a.
+Phase 1 always fires. It is the single hard wall between an unvalidated
+client spec and every downstream sub-skill. Per BP-027, a spec that does
+not pass the validator does not reach Phase 2.
 
-## TODO (Stage 9.0.3a)
+## Procedure
 
-Migrate these from the current `SKILL.md` Step 1 into this director:
+1. **Invoke `/skill-spec-validator`** as an isolated Agent subtask with the
+   spec path. Read the `output.yaml` it returns.
+2. **Branch on verdict.**
+   - `status: pass` → continue to Phase 2.
+   - `status: gaps` → print the human-readable gap report from the
+     validator's `output.md` and STOP. Do NOT proceed. The driver does not
+     attempt auto-repair.
+3. **Record the verdict.** Write the validator's `output.yaml` path into
+   the factory run's notes for Phase 99's final report to reference.
 
-- The `/skill-spec-validator` invocation contract.
-- BLOCKER discipline when `status: gaps`.
-- Work-directory convention (`~/Claude/skill-factory-runs/<ts>/`).
-- Pointer to `references/validator-contract.md` (to be created in 9.0.3a).
+See `references/validator-contract.md` for the exact validator schema,
+the 10 required spec sections, and the gap-report format.
 
-Until this is populated, the driver `SKILL.md` remains authoritative for
-Phase 1 execution.
+## Work directory
+
+Pick a working directory under `~/Claude/skill-factory/<company>-<slug>/`.
+All phase outputs land under `<work>/phases/NN-<sub-skill>/`. Treat this
+directory as the driver's scratch — per-client repo materialization is
+Phase 99's Wave 4 scope (not yet implemented).
+
+## What this phase does NOT do
+
+- Does NOT spawn any other sub-skill.
+- Does NOT read the classifier (Phase 2 hasn't run yet).
+- Does NOT write to the phase directory itself — the `/skill-spec-validator`
+  Agent writes its own `output.yaml` / `output.md` / `notes.md` there.
+
+## Cross-reference
+
+- Agent-spawn mechanics shared across all phases: `../../references/spawn-subagent.md`.
+- BP-027 text: `../../../patterns/bp-027-input-gate-is-a-hard-wall.md`.
