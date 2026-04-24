@@ -107,11 +107,33 @@ skill-foo/
 
 **Why:** Two parallel sibling folders at the same depth is clean and lazy-load-friendly. Nesting a knowledge folder inside a process folder (or vice versa) couples them in a way that breaks BP-008 and makes on-demand loading opaque.
 
-**Lint behaviour:**
+**Lint behaviour (default, without `--two-level`):**
 - Missing `phases/` when `--has-phases` is set → fail.
 - Missing `references/` when `--has-phases` is set → fail (parallel-folder pattern requires both).
 - Any `phases/*/references/` or `references/*/phases/` → fail.
 - Missing `assets/` → warn (optional).
+
+### Sub-rule — `--two-level` director hierarchy (Stage 9.0.4+)
+
+When `--two-level` is also set, the two-level director hierarchy (the Skill Factory's own pattern from Stage 9.0) legitimizes `phases/<N>/references/<file>.md` as phase-scoped references. This shape is NOT a BP-009 violation — it is the canonical pattern for phased skills where each phase's director has its own scoped knowledge.
+
+**Two-level hierarchy shape:**
+```
+skill-foo/
+  SKILL.md              top director — cites phases/ and cross-phase references/
+  references/           cross-phase references (cited from SKILL.md or ≥2 phase directors)
+  phases/
+    01-foo/
+      director.md       phase director — cites phases/01-foo/references/
+      references/       phase-scoped refs (cited only from this phase's director)
+```
+
+**Lint behaviour WITH `--two-level` AND `--has-phases`:**
+- `phases/<N>/references/` nesting is accepted; lint emits an info line counting the scoped refs dirs.
+- `references/<X>/phases/` (reversed nesting) remains a hard fail — two-level legitimizes one direction only.
+- Strict citation-walk enforcement (phase-scoped refs must be cited from exactly their phase director; cross-phase refs from SKILL.md or ≥2 phase directors) is deferred to Stage 9.0.6's strict-mode flip.
+
+Leaf (non-phased) sub-skills do not use `--two-level`. BP-009 only fires on phased skills per the matrix.
 
 ---
 

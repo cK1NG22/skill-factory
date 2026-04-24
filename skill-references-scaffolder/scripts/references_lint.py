@@ -6,7 +6,7 @@ how its SKILL.md cites reference files, plus parallel-folder structure.
 Implements the 3 rules in references/references-rules.md. Pure stdlib.
 
 Usage:
-    python3 references_lint.py <skill-dir-or-input.md> [--has-references] [--has-phases]
+    python3 references_lint.py <skill-dir-or-input.md> [--has-references] [--has-phases] [--two-level]
     python3 references_lint.py - --skill-dir <dir> [flags]   # read SKILL.md from stdin, inspect dir
 
 Rule A (BP-008, universal when a `references/` folder exists):
@@ -20,7 +20,14 @@ Rule B (BP-007, only when --has-references):
 
 Rule C (BP-009, only when --has-phases):
     The skill root must have `phases/` and `references/` at the same depth.
-    Nesting is a hard fail: `phases/<X>/references/...`, `references/<X>/phases/...`.
+    By default nesting is a hard fail (`phases/<X>/references/...` or
+    `references/<X>/phases/...`).
+    When `--two-level` is ALSO set, `phases/<N>/references/` nesting is the
+    canonical two-level director hierarchy (Stage 9 factory pattern) and is
+    accepted; the lint emits an info line counting phase-scoped references/
+    directories. Strict citation-walk enforcement (phase-scoped refs must be
+    cited from exactly their phase director; cross-phase refs from SKILL.md
+    or ≥2 phase directors) is deferred to Stage 9.0.6's strict-mode flip.
     Missing `assets/` emits a warn (not fail) — `assets/` is optional.
 
 Exit codes:
@@ -191,6 +198,7 @@ def lint_paths(
     skill_md_text: str | None = None,
     has_references: bool = False,
     has_phases: bool = False,
+    two_level: bool = False,
 ) -> LintResult:
     result = LintResult()
 
@@ -303,10 +311,30 @@ def lint_paths(
             )
         nested = _find_nested_parallel_violations(skill_dir)
         if nested:
-            result.fails.append(
-                f"BP-009: nested parallel folder(s) found: {nested}. "
-                f"phases/ and references/ must be siblings at the skill root."
-            )
+            if two_level:
+                # In two-level-hierarchy mode (Stage 9.0.4+), `phases/<N>/references/`
+                # nesting is the canonical director-scoped reference location, not a
+                # violation. We surface it as an info line so the operator can see
+                # which phase-dirs carry scoped refs. `references/<X>/phases/` is
+                # still nonsensical and NOT covered by two-level mode — partition
+                # the nested list.
+                scoped = [n for n in nested if n.startswith("phases/")]
+                reversed_nest = [n for n in nested if not n.startswith("phases/")]
+                if scoped:
+                    result.info.append(
+                        f"two-level hierarchy detected: "
+                        f"{len(scoped)} phase-scoped references/ dir(s) at {scoped}"
+                    )
+                if reversed_nest:
+                    result.fails.append(
+                        f"BP-009: nested parallel folder(s) found: {reversed_nest}. "
+                        f"phases/ and references/ must be siblings at the skill root."
+                    )
+            else:
+                result.fails.append(
+                    f"BP-009: nested parallel folder(s) found: {nested}. "
+                    f"phases/ and references/ must be siblings at the skill root."
+                )
         assets_dir = skill_dir / "assets"
         if not assets_dir.is_dir():
             result.warns.append(
@@ -343,13 +371,14 @@ def _main(argv: list[str]) -> int:
     if not args:
         print(
             "usage: references_lint.py <skill-dir-or-SKILL.md> "
-            "[--has-references] [--has-phases]",
+            "[--has-references] [--has-phases] [--two-level]",
             file=sys.stderr,
         )
         return 2
     target = args[0]
     has_references = "--has-references" in args[1:]
     has_phases = "--has-phases" in args[1:]
+    two_level = "--two-level" in args[1:]
     try:
         skill_dir, override_text = _resolve_target(target)
     except FileNotFoundError as exc:
@@ -360,6 +389,7 @@ def _main(argv: list[str]) -> int:
         skill_md_text=override_text,
         has_references=has_references,
         has_phases=has_phases,
+        two_level=two_level,
     )
     print(json.dumps(result.to_dict(), indent=2))
     return 0 if result.passed else 1

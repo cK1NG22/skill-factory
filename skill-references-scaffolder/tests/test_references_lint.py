@@ -398,6 +398,116 @@ class TestRuleC_BP009(unittest.TestCase):
             self.assertEqual(bp009, [], result.fails)
 
 
+class TestStage904TwoLevelHierarchy(unittest.TestCase):
+    """Tests for the --two-level flag introduced in Stage 9.0.4.
+
+    Two-level mode is the Skill Factory's director hierarchy: top-level
+    SKILL.md directs to phases/<N>/director.md, and each phase director
+    directs to phase-scoped phases/<N>/references/<file>.md. Nesting of
+    `phases/<N>/references/` is the canonical pattern, not a BP-009 fail.
+    `references/<X>/phases/` remains nonsensical and still fails.
+    """
+
+    def test_two_level_false_still_fails_on_nested(self):
+        # Backward compat: without --two-level, the old Rule C still hard-fails
+        # on phases/<N>/references/ nesting.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                "SKILL.md": "# s\nRead `references/a.md` for A.\n",
+                "references/a.md": "# a\n",
+                "phases/01/input.md": "# p\n",
+                "phases/01/references/scoped.md": "# scoped\n",
+            })
+            result = rl.lint_paths(
+                skill, has_references=True, has_phases=True, two_level=False,
+            )
+            self.assertFalse(result.passed)
+            self.assertTrue(
+                any("BP-009" in f and "nested" in f for f in result.fails),
+                result.fails,
+            )
+
+    def test_two_level_true_accepts_scoped_references(self):
+        # With --two-level AND --has-phases, phases/<N>/references/ is legit.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                "SKILL.md": "# s\nRead `references/a.md` for A.\n",
+                "references/a.md": "# a\n",
+                "phases/01/input.md": "# p\n",
+                "phases/01/references/scoped.md": "# scoped\n",
+            })
+            result = rl.lint_paths(
+                skill, has_references=True, has_phases=True, two_level=True,
+            )
+            # No BP-009 nested fail when two-level is on.
+            self.assertFalse(
+                any("BP-009" in f and "nested" in f for f in result.fails),
+                f"Unexpected BP-009 nested fail under two-level mode: {result.fails}",
+            )
+
+    def test_two_level_emits_info_counting_scoped_dirs(self):
+        # When two-level legitimizes the nesting, surface it as info so the
+        # operator can see how many phase-dirs carry scoped refs.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                "SKILL.md": "# s\nRead `references/a.md` for A.\n",
+                "references/a.md": "# a\n",
+                "phases/01/input.md": "# p\n",
+                "phases/01/references/one.md": "# one\n",
+                "phases/02/input.md": "# p\n",
+                "phases/02/references/two.md": "# two\n",
+            })
+            result = rl.lint_paths(
+                skill, has_references=True, has_phases=True, two_level=True,
+            )
+            info_lines = " ".join(result.info)
+            self.assertIn("two-level hierarchy detected", info_lines)
+            # Both phase-scoped refs dirs reported.
+            self.assertIn("phases/01/references", info_lines)
+            self.assertIn("phases/02/references", info_lines)
+
+    def test_two_level_still_fails_on_reversed_nesting(self):
+        # references/<X>/phases/ is nonsensical in either mode. --two-level
+        # only legitimizes phases/<N>/references/, not the reverse.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                "SKILL.md": "# s\nRead `references/a.md` for A.\n",
+                "references/a.md": "# a\n",
+                "references/oops/phases/x.md": "# reversed nest\n",
+                "phases/01/input.md": "# p\n",
+            })
+            result = rl.lint_paths(
+                skill, has_references=True, has_phases=True, two_level=True,
+            )
+            # BP-009 must still surface on the reversed nest.
+            self.assertTrue(
+                any("BP-009" in f for f in result.fails), result.fails,
+            )
+
+    def test_cli_two_level_flag(self):
+        # CLI surfaces the flag and accepts it.
+        with tempfile.TemporaryDirectory() as td:
+            skill = _make_skill(Path(td), {
+                "SKILL.md": "# s\nRead `references/a.md` for A.\n",
+                "references/a.md": "# a\n",
+                "phases/01/input.md": "# p\n",
+                "phases/01/references/scoped.md": "# scoped\n",
+            })
+            script = SCRIPTS / "references_lint.py"
+            proc = subprocess.run(
+                ["python3", str(script), str(skill),
+                 "--has-references", "--has-phases", "--two-level"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            out = json.loads(proc.stdout)
+            self.assertTrue(out["passed"])
+            self.assertTrue(
+                any("two-level hierarchy detected" in i for i in out["info"]),
+                out["info"],
+            )
+
+
 # ---------- End-to-end on real fixtures ----------
 
 
