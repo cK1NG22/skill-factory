@@ -600,6 +600,33 @@ class TestStage9aWiring(unittest.TestCase):
             # No directories created when there's nothing to scaffold
             self.assertFalse((tmp / "scaffolded" / "references").exists())
 
+    def test_prescaffold_references_with_has_phases_creates_phases_dir(self):
+        """Stage 9b regression — caught by omnibus 5-trait E2E. When
+        has_phases AND has_references both fire, the pre-scaffold must
+        create an empty phases/ alongside references/ so
+        references_lint.py --has-phases doesn't fail BP-009 on a missing
+        phases/ sibling. Without this, the omnibus E2E hit a first-attempt
+        lint fail."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            spec = tmp / "spec.md"
+            spec.write_text(textwrap.dedent("""
+                ## Reference exemplars
+                - `intake.md` — questions to ask first.
+            """).strip(), encoding="utf-8")
+            target = tmp / "scaffolded"
+
+            # Without has_phases: only references/ created
+            bcp.prescaffold_references(spec, target)
+            self.assertTrue((target / "references").is_dir())
+            self.assertFalse((target / "phases").exists())
+
+            # With has_phases: phases/ also created
+            target2 = tmp / "scaffolded2"
+            bcp.prescaffold_references(spec, target2, has_phases=True)
+            self.assertTrue((target2 / "references").is_dir())
+            self.assertTrue((target2 / "phases").is_dir())
+
     # ---------- target_skill_dir block in pack ----------
 
     def test_target_skill_dir_block_appears_when_provided(self):
@@ -720,10 +747,249 @@ class TestStage9aWiring(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             payload = json.loads(result.stdout.strip())
-            self.assertEqual(payload, {"scaffolded": ["a.md", "b.md"]})
+            # Stage 9b enriched the payload with has_phases — assert the
+            # scaffolded list specifically, not the whole dict shape, so this
+            # test stays forward-compatible if more fields are added.
+            self.assertEqual(payload["scaffolded"], ["a.md", "b.md"])
+            # Without --has-phases flag, has_phases defaults to False
+            self.assertFalse(payload.get("has_phases", False))
             self.assertTrue((target / "references" / "a.md").is_file())
             self.assertTrue((target / "references" / "b.md").is_file())
             self.assertTrue((target / "SKILL.md").is_file())
+            # Without --has-phases, no phases/ dir created
+            self.assertFalse((target / "phases").exists())
+
+
+class TestStage9bWiring(unittest.TestCase):
+    """Stage 9b: predicate registry + signed-handoff wiring + AND-intersection
+    trigger. The first compound trigger in the factory."""
+
+    # ---------- Predicate registry ----------
+
+    def test_signed_handoff_registered_in_all_4_tier1_dicts(self):
+        for registry in (
+            bcp._SUB_SKILL_BPS,
+            bcp._SUB_SKILL_SECTIONS,
+            bcp._SUB_SKILL_OUTPUT_BLURB,
+            bcp._SUB_SKILL_TASK,
+        ):
+            self.assertIn("skill-signed-handoff", registry)
+
+    def test_signed_handoff_registered_in_predicate_registry(self):
+        """Tier 3 — the AND-intersection sub-skill MUST be in the predicate
+        registry (otherwise should_fire's default-to-True would let it fire
+        on every spec, including non-pipeline ones)."""
+        self.assertIn("skill-signed-handoff", bcp._SUB_SKILL_TRIGGER_PREDICATE)
+
+    def test_signed_handoff_predicate_AND_semantics(self):
+        """The predicate must implement boolean AND of has_phases + invokes_skills."""
+        predicate = bcp._SUB_SKILL_TRIGGER_PREDICATE["skill-signed-handoff"]
+        # Both true → fire
+        self.assertTrue(predicate({
+            "has_phases": {"fires": True}, "invokes_skills": {"fires": True}
+        }))
+        # Either false → skip
+        self.assertFalse(predicate({
+            "has_phases": {"fires": True}, "invokes_skills": {"fires": False}
+        }))
+        self.assertFalse(predicate({
+            "has_phases": {"fires": False}, "invokes_skills": {"fires": True}
+        }))
+        # Neither set → skip (defensive against missing keys)
+        self.assertFalse(predicate({}))
+
+    def test_should_fire_default_to_true_for_unregistered(self):
+        """Sub-skills NOT in the predicate registry default to True — driver
+        SKILL.md does the gating via inline trait reads (Pattern A)."""
+        # frontmatter is always-fires; not in predicate registry
+        self.assertTrue(bcp.should_fire("skill-frontmatter", {"traits": {}}))
+        # phase-designer is single-trait; not in predicate registry
+        self.assertTrue(bcp.should_fire("skill-phase-designer", {"traits": {}}))
+        # refs-scaffolder is single-trait; not in predicate registry
+        self.assertTrue(bcp.should_fire("skill-references-scaffolder", {"traits": {}}))
+        # cron is single-trait; not in predicate registry
+        self.assertTrue(bcp.should_fire("skill-cron-observability", {"traits": {}}))
+
+    def test_should_fire_signed_handoff_AND_gate(self):
+        """should_fire on signed-handoff uses the AND predicate."""
+        both_fire = {"traits": {
+            "has_phases": {"fires": True}, "invokes_skills": {"fires": True}
+        }}
+        only_phases = {"traits": {
+            "has_phases": {"fires": True}, "invokes_skills": {"fires": False}
+        }}
+        self.assertTrue(bcp.should_fire("skill-signed-handoff", both_fire))
+        self.assertFalse(bcp.should_fire("skill-signed-handoff", only_phases))
+
+    def test_should_fire_rejects_unknown_subskill(self):
+        """Parity with build_pack / resolve_bp_paths: unknown sub-skill →
+        ValueError, not KeyError."""
+        with self.assertRaises(ValueError) as cm:
+            bcp.should_fire("bogus", {"traits": {}})
+        self.assertIn("bogus", str(cm.exception))
+        self.assertIn("skill-signed-handoff", str(cm.exception))
+
+    def test_should_fire_handles_null_traits(self):
+        """Stage 7b regression class: classifier with `traits: null` must
+        not crash should_fire (parity with render_traits_block fix)."""
+        # default-to-True path
+        self.assertTrue(bcp.should_fire("skill-frontmatter", {"traits": None}))
+        # predicate-registered path — predicate handles missing traits via .get
+        self.assertFalse(bcp.should_fire("skill-signed-handoff", {"traits": None}))
+
+    # ---------- BP resolution ----------
+
+    def test_resolve_bp_paths_signed_handoff_base(self):
+        """Only BP-024 ships in the pack — meta BPs (BP-028, BP-033) are
+        factory-internal discipline self-applied by the sub-skill."""
+        paths = bcp.resolve_bp_paths(
+            "skill-signed-handoff", PATTERNS_ROOT, firing_traits=None
+        )
+        names = [Path(p).name for p in paths]
+        self.assertEqual(names, ["bp-024-signed-handoffs.md"])
+
+    def test_resolve_bp_paths_signed_handoff_unaffected_by_traits(self):
+        """signed-handoff has no _SUB_SKILL_CONDITIONAL_BPS entry — same BPs
+        regardless of which other traits fire (the AND-trigger is the entire
+        gate; further conditionals would be redundant)."""
+        base = bcp.resolve_bp_paths("skill-signed-handoff", PATTERNS_ROOT)
+        with_all = bcp.resolve_bp_paths(
+            "skill-signed-handoff", PATTERNS_ROOT,
+            firing_traits=["has_phases", "invokes_skills", "has_hitl",
+                           "is_scheduled", "has_references"]
+        )
+        self.assertEqual(base, with_all)
+
+    # ---------- Pack shape ----------
+
+    def test_signed_handoff_pack_shape(self):
+        """The materialized input.md for signed-handoff carries the standard
+        section ordering plus optional Pipeline composition / Argument-bearing
+        fields when the spec declares them."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            spec = tmp / "spec.md"
+            spec.write_text(textwrap.dedent("""
+                # Spec
+                ## Company
+                acme
+                ## Skill slug
+                pipeline-deck
+                ## One-line description
+                Deck builder downstream of /acme-case.
+                ## Trigger phrases
+                - build pipeline deck
+                ## Inputs
+                Spec from upstream.
+                ## Outputs
+                A deck.
+                ## Happy-path walkthrough
+                1. Verify signature.
+                2. Build deck.
+                3. Sign output.
+                ## Success signals
+                Deck builds.
+                ## Failure modes
+                Sig mismatch → exit 1.
+                ## Existing skills to reuse
+                - `/acme-case` — upstream producer.
+                ## Pipeline composition
+                Upstream `/acme-case` writes spec; this skill verifies + consumes.
+                ## Argument-bearing fields
+                - `argument_flow`
+                - `recommendation`
+            """).strip(), encoding="utf-8")
+            classifier = tmp / "classifier.json"
+            classifier.write_text(json.dumps({
+                "traits": {
+                    "has_phases": {"fires": True},
+                    "invokes_skills": {"fires": True},
+                    "has_references": {"fires": False},
+                    "has_hitl": {"fires": False},
+                    "is_scheduled": {"fires": False},
+                }
+            }), encoding="utf-8")
+
+            input_md = bcp.build_pack(
+                spec_path=spec, classifier_path=classifier,
+                sub_skill_name="skill-signed-handoff",
+                out_dir=tmp / "phase07",
+                patterns_root=PATTERNS_ROOT,
+            )
+            text = input_md.read_text(encoding="utf-8")
+            # Required structural elements
+            self.assertIn("# Input pack — skill-signed-handoff", text)
+            self.assertIn("Stamp a `<slug>_signature.py` script", text)
+            self.assertIn("### Existing skills to reuse", text)
+            self.assertIn("### Pipeline composition", text)
+            self.assertIn("### Argument-bearing fields", text)
+            self.assertIn("argument_flow", text)
+            self.assertIn("bp-024-signed-handoffs.md", text)
+            # Trait block: invokes_skills nests the slug
+            self.assertIn("invokes_skills: true", text)
+            self.assertIn("- /acme-case", text)
+            # No Target skill directory block (signed-handoff doesn't need it)
+            self.assertNotIn("## Target skill directory", text)
+
+    # ---------- CLI integration ----------
+
+    def test_cli_should_fire_returns_exit_0_when_predicate_true(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            classifier = Path(tmp) / "c.json"
+            classifier.write_text(json.dumps({
+                "traits": {
+                    "has_phases": {"fires": True},
+                    "invokes_skills": {"fires": True},
+                }
+            }), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(SCRIPTS / "build_context_pack.py"),
+                 "--should-fire", "skill-signed-handoff", str(classifier)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout.strip())
+            self.assertEqual(payload, {"sub_skill": "skill-signed-handoff", "fires": True})
+
+    def test_cli_prescaffold_with_has_phases_flag(self):
+        """Stage 9b regression: --has-phases flag must propagate to
+        prescaffold_references and produce an empty phases/ dir."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            spec = tmp / "spec.md"
+            spec.write_text(textwrap.dedent("""
+                ## Reference exemplars
+                - `x.md` — first ref.
+            """).strip(), encoding="utf-8")
+            target = tmp / "target"
+            result = subprocess.run(
+                [sys.executable, str(SCRIPTS / "build_context_pack.py"),
+                 "--prescaffold-references", str(spec), str(target), "--has-phases"],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout.strip())
+            self.assertEqual(payload["scaffolded"], ["x.md"])
+            self.assertTrue(payload["has_phases"])
+            self.assertTrue((target / "phases").is_dir())
+
+    def test_cli_should_fire_returns_exit_1_when_predicate_false(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            classifier = Path(tmp) / "c.json"
+            classifier.write_text(json.dumps({
+                "traits": {
+                    "has_phases": {"fires": True},
+                    "invokes_skills": {"fires": False},
+                }
+            }), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(SCRIPTS / "build_context_pack.py"),
+                 "--should-fire", "skill-signed-handoff", str(classifier)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 1)
+            payload = json.loads(result.stdout.strip())
+            self.assertEqual(payload, {"sub_skill": "skill-signed-handoff", "fires": False})
 
 
 if __name__ == "__main__":

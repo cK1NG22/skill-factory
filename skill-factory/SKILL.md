@@ -32,7 +32,7 @@ not inline phase logic here.
 Pick a working directory under `~/Claude/skill-factory/<company>-<slug>/`.
 All phase outputs land under `<work>/phases/NN-<sub-skill>/`.
 
-The factory is 7 sequential phases. Each phase has its own director
+The factory is 8 sequential phases. Each phase has its own director
 under `phases/<N>-<name>/director.md`. Read the phase director when
 entering that phase — do not inline its logic here.
 
@@ -69,13 +69,24 @@ Check `is_scheduled.fires` per `references/trait-gating.md` Pattern A.
 When true, read `phases/06-skill-cron-observability/director.md` and
 execute its procedure. When false, skip to Step 7.
 
-### Step 7 — Enter Phase 99 (report and stop)
+### Step 7 — Enter Phase 7 (signed-handoff, AND-conditional on has_phases ∧ invokes_skills)
+
+Check the AND-predicate via the predicate-registry CLI:
+
+```bash
+python3 scripts/build_context_pack.py --should-fire skill-signed-handoff <work>/classifier.json
+```
+
+Exit 0 → read `phases/07-skill-signed-handoff/director.md` and
+execute its procedure. Exit 1 → skip to Step 8. Exit 2 → driver bug;
+STOP and report. See `phases/07-skill-signed-handoff/references/and-gating.md`
+for why this phase uses Pattern B (predicate registry) instead of
+Pattern A (inline trait read).
+
+### Step 8 — Enter Phase 99 (report and stop)
 
 Read `phases/99-report/director.md` and execute its procedure. Print
 the per-phase summary and the work directory path.
-
-Phase 07 is reserved for Stage 9b (`skill-signed-handoff`, AND-gated
-on `has_phases ∧ invokes_skills`).
 
 ## References (cross-phase)
 
@@ -96,11 +107,13 @@ references live under `phases/<N>-<name>/references/`.
 ## Scripts
 
 - **`scripts/trait_predicates.py`** — the 5-predicate classifier. CLI.
-- **`scripts/build_context_pack.py`** — Phases 3/4/5/6 pack materializer.
-  Supports `skill-frontmatter`, `skill-phase-designer`,
-  `skill-references-scaffolder`, and `skill-cron-observability` as
-  sub-skill targets. Also exposes `--prescaffold-references` and
-  `--target-skill-dir` for Phase 5 pre-scaffolding (Stage 9a). CLI.
+- **`scripts/build_context_pack.py`** — Phases 3/4/5/6/7 pack
+  materializer. Supports `skill-frontmatter`, `skill-phase-designer`,
+  `skill-references-scaffolder`, `skill-cron-observability`, and
+  `skill-signed-handoff` as sub-skill targets. Exposes
+  `--prescaffold-references` and `--target-skill-dir` for Phase 5
+  pre-scaffolding (Stage 9a) and `--should-fire` for Phase 7 AND-gated
+  predicate evaluation (Stage 9b). CLI.
 
 ## Fixtures
 

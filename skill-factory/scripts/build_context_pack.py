@@ -13,18 +13,21 @@ Usage:
 
     build_context_pack.py --prescaffold-references <spec-path> <target-skill-dir>
 
+    build_context_pack.py --should-fire <sub-skill-name> <classifier-json>
+
 Currently supported <sub-skill-name> values:
     skill-frontmatter
     skill-phase-designer
     skill-references-scaffolder    (Stage 9a)
     skill-cron-observability       (Stage 9a)
+    skill-signed-handoff           (Stage 9b — AND-intersection trigger)
 
 Output:
     <out-dir>/input.md — the materialized context pack.
 
 Exit codes:
-    0 — pack materialized successfully (or prescaffold completed)
-    1 — spec missing a required section or sub-skill name unsupported
+    0 — pack materialized successfully (or prescaffold completed, or sub-skill should fire)
+    1 — spec missing a required section, sub-skill name unsupported, or sub-skill should NOT fire
     2 — usage / I/O error
 
 ## Adding a new sub-skill (author-facing cheat sheet)
@@ -48,6 +51,23 @@ row keyed by the sub-skill name in each applicable dict below. Two tiers:
 If the sub-skill's BP list or section list never varies with traits, skip
 Tier 2 entirely. The union with firing traits happens inside `build_pack` /
 `resolve_bp_paths` — callers don't need to know about the split.
+
+  Tier 3 — edit only if the sub-skill's trigger is NOT a single-trait OR-gate
+  (1 dict, Stage 9b extension):
+    7. _SUB_SKILL_TRIGGER_PREDICATE — {sub-skill-name: callable(traits) -> bool}.
+                                      Pure function over the classifier's
+                                      `traits` dict. Used by `should_fire()` to
+                                      decide whether the driver enters the
+                                      sub-skill's phase.
+
+The default-to-True invariant: a sub-skill NOT registered in
+_SUB_SKILL_TRIGGER_PREDICATE is always considered fireable — the driver
+SKILL.md gates entry via inline trait reads (Pattern A in trait-gating.md).
+Register here only when the trigger is genuinely compound (e.g., AND of
+two traits, like `skill-signed-handoff` which fires only when
+`has_phases ∧ invokes_skills`). Single-trait sub-skills (frontmatter
+always, phase-designer on `has_phases`, refs on `has_references`, cron on
+`is_scheduled`) skip Tier 3 — their gates already live in the driver.
 
 ## Pre-scaffolding (Stage 9a, skill-references-scaffolder only)
 
@@ -73,6 +93,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Callable
 
 # --- Universal + Conditional BP lookup per sub-skill ---
 # Each sub-skill has its own canonical list of BPs. The frontmatter sub-skill
@@ -107,6 +128,14 @@ _SUB_SKILL_BPS: dict[str, list[str]] = {
     "skill-cron-observability": [
         "bp-022-cron-observability.md",
         "bp-021-output-home.md",
+    ],
+    # Stage 9b: BP-024 is the signed-handoff contract (sha256 over the
+    # argument-bearing fields). Meta BPs (BP-028, BP-033) are factory-internal
+    # discipline the sub-skill self-applies via its own SKILL.md — not
+    # shipped in the pack, consistent with frontmatter / phase-designer
+    # which also self-apply BP-028 without the driver injecting it.
+    "skill-signed-handoff": [
+        "bp-024-signed-handoffs.md",
     ],
 }
 
@@ -183,6 +212,24 @@ _SUB_SKILL_SECTIONS: dict[str, list[str]] = {
         "Happy-path walkthrough",
         "Failure modes",
     ],
+    # Stage 9b: signed-handoff sub-skill needs the reuse section (to bind
+    # upstream/downstream skill slugs), the walkthrough (for context on the
+    # handoff sequence), and Failure modes (for the exit-code mapping). Two
+    # custom optional sections — Pipeline composition + Argument-bearing
+    # fields — are carried when the spec declares them, silently skipped
+    # otherwise (per build_pack's missing-section coalesce). Specs that fire
+    # the AND-trigger are expected to declare both, but the sub-skill
+    # BLOCKERs cleanly at its Step 4 if the field list is absent.
+    "skill-signed-handoff": [
+        "Company",
+        "Skill slug",
+        "One-line description",
+        "Existing skills to reuse",
+        "Happy-path walkthrough",
+        "Failure modes",
+        "Pipeline composition",
+        "Argument-bearing fields",
+    ],
 }
 
 # Conditional sections keyed by trait; appended when the trait fires. These are
@@ -196,6 +243,40 @@ _SUB_SKILL_CONDITIONAL_SECTIONS: dict[str, dict[str, list[str]]] = {
         ],
     },
 }
+
+# --- Trigger predicate registry (Stage 9b — Tier 3) ---
+# A sub-skill registered here fires only when its predicate returns True given
+# the classifier's `traits` dict. A sub-skill NOT registered here fires
+# unconditionally — the driver SKILL.md gates entry via inline trait reads
+# (Pattern A in trait-gating.md). Register only for compound triggers (e.g.,
+# the AND-intersection of has_phases ∧ invokes_skills used by signed-handoff).
+_SUB_SKILL_TRIGGER_PREDICATE: dict[str, Callable[[dict], bool]] = {
+    "skill-signed-handoff": lambda t: (
+        bool(t.get("has_phases", {}).get("fires"))
+        and bool(t.get("invokes_skills", {}).get("fires"))
+    ),
+}
+
+
+def should_fire(sub_skill_name: str, classifier: dict) -> bool:
+    """Decide whether `sub_skill_name` should run given the classifier output.
+
+    Default-to-True invariant: a sub-skill not registered in
+    _SUB_SKILL_TRIGGER_PREDICATE is always fireable from this helper's
+    perspective — the driver SKILL.md's inline trait read is the gate. Use
+    this helper only for AND-intersection (or other compound) triggers.
+
+    Raises ValueError on unknown sub-skill, matching `build_pack` /
+    `resolve_bp_paths`."""
+    if sub_skill_name not in _SUB_SKILL_BPS:
+        raise ValueError(
+            f"unsupported sub-skill: {sub_skill_name!r}. "
+            f"supported: {sorted(_SUB_SKILL_BPS.keys())}"
+        )
+    traits = classifier.get("traits") or {}
+    predicate = _SUB_SKILL_TRIGGER_PREDICATE.get(sub_skill_name, lambda _: True)
+    return bool(predicate(traits))
+
 
 # --- Output location blurbs per sub-skill ---
 _SUB_SKILL_OUTPUT_BLURB: dict[str, str] = {
@@ -242,6 +323,18 @@ _SUB_SKILL_OUTPUT_BLURB: dict[str, str] = {
         "Do NOT read any files not listed above. Do NOT open `patterns/` directly — "
         "the BP files you need are the ones listed above."
     ),
+    "skill-signed-handoff": (
+        "Write into the directory containing this `input.md`:\n"
+        "- `output-signature-template.py` — the stamped signature script ready to drop into the "
+        "target skill's `scripts/` directory. Stamped from "
+        "`/Users/carterking/Projects/skill-factory/skill-signed-handoff/scripts/signature-template.py` "
+        "with the spec's argument-bearing fields list.\n"
+        "- `notes.md` — `BLOCKER:` lines if any, otherwise short observations (declared SIGNED_FIELDS, "
+        "upstream/downstream phase bindings).\n"
+        "\n"
+        "Do NOT read any files not listed above. Do NOT open `patterns/` directly — "
+        "the BP files you need are the ones listed above."
+    ),
 }
 
 # --- Task lines per sub-skill ---
@@ -260,6 +353,10 @@ _SUB_SKILL_TASK: dict[str, str] = {
     "skill-cron-observability": (
         "Generate a BP-022-compliant instrumentation snippet for the target cron skill. "
         "Pass scripts/observability_lint.py against the generated snippet."
+    ),
+    "skill-signed-handoff": (
+        "Stamp a `<slug>_signature.py` script for the upstream skill's terminal phase, signing the "
+        "argument-bearing fields declared in the spec. Pass scripts/handoff_lint.py against the stamped script."
     ),
 }
 
@@ -362,13 +459,22 @@ def parse_reference_exemplars(section_text: str | None) -> list[tuple[str, str]]
     return [(name, purpose.strip()) for name, purpose in matches]
 
 
-def prescaffold_references(spec_path: Path, target_skill_dir: Path) -> list[tuple[str, str]]:
+def prescaffold_references(
+    spec_path: Path,
+    target_skill_dir: Path,
+    has_phases: bool = False,
+) -> list[tuple[str, str]]:
     """Pre-scaffold the target skill dir from the spec's "Reference exemplars".
 
     Creates `target_skill_dir/references/<name>.md` (empty placeholder, single
     `# <stem>` header) for each entry, plus `target_skill_dir/SKILL.md` (stub
     with frontmatter + a `## References` section that contains one canonical
     `Read references/<name>.md for <purpose>.` line per entry).
+
+    When `has_phases` is True, ALSO creates an empty `target_skill_dir/phases/`
+    directory so `references_lint.py --has-phases` does not fail BP-009 on a
+    missing `phases/` sibling. Stage 9b regression: caught by the omnibus
+    5-trait E2E when `has_references ∧ has_phases` both fire.
 
     Returns the parsed reference list so callers can verify what was scaffolded.
 
@@ -391,6 +497,15 @@ def prescaffold_references(spec_path: Path, target_skill_dir: Path) -> list[tupl
         if not ref_path.exists():
             stem = ref_path.stem
             ref_path.write_text(f"# {stem}\n\nPlaceholder for spec entry `{name}`.\n", encoding="utf-8")
+
+    # When the target skill is itself phased, BP-009 requires `phases/` and
+    # `references/` as siblings. Create an empty placeholder so the
+    # references_lint.py --has-phases walk doesn't fail on a missing dir.
+    # The phase-designer sub-skill produces the actual procedure content
+    # later; this is just structural scaffolding.
+    if has_phases:
+        phases_dir = target_skill_dir / "phases"
+        phases_dir.mkdir(parents=True, exist_ok=True)
 
     # Strip trailing punctuation from the spec-supplied purpose so we can append
     # our own period without producing "first.." double-periods. (Spec entries
@@ -527,24 +642,47 @@ _USAGE = (
     "usage:\n"
     "  build_context_pack.py <spec-path> <classifier-json> <sub-skill-name> "
     "<out-dir> [--patterns-root <dir>] [--target-skill-dir <dir>]\n"
-    "  build_context_pack.py --prescaffold-references <spec-path> <target-skill-dir>"
+    "  build_context_pack.py --prescaffold-references <spec-path> <target-skill-dir>\n"
+    "  build_context_pack.py --should-fire <sub-skill-name> <classifier-json>"
 )
 
 
 def _main(argv: list[str]) -> int:
-    # --- Stage 9a: pre-scaffold mode ---
+    # --- Stage 9a: pre-scaffold mode (Stage 9b: + optional --has-phases) ---
     if len(argv) >= 2 and argv[1] == "--prescaffold-references":
         if len(argv) < 4:
             print(_USAGE, file=sys.stderr)
             return 2
         spec_path = Path(argv[2]).expanduser().resolve()
         target_skill_dir = Path(argv[3]).expanduser().resolve()
+        has_phases = "--has-phases" in argv
         if not spec_path.is_file():
             print(f"error: spec not found: {spec_path}", file=sys.stderr)
             return 2
-        refs = prescaffold_references(spec_path, target_skill_dir)
-        print(json.dumps({"scaffolded": [name for name, _ in refs]}))
+        refs = prescaffold_references(spec_path, target_skill_dir, has_phases=has_phases)
+        print(json.dumps({"scaffolded": [name for name, _ in refs], "has_phases": has_phases}))
         return 0
+
+    # --- Stage 9b: should-fire predicate mode ---
+    # Exit 0 = sub-skill should fire. Exit 1 = sub-skill should NOT fire
+    # (predicate returned False). Exit 2 = bad usage / unknown sub-skill / I/O.
+    if len(argv) >= 2 and argv[1] == "--should-fire":
+        if len(argv) < 4:
+            print(_USAGE, file=sys.stderr)
+            return 2
+        sub_skill_name = argv[2]
+        classifier_path = Path(argv[3]).expanduser().resolve()
+        if not classifier_path.is_file():
+            print(f"error: classifier json not found: {classifier_path}", file=sys.stderr)
+            return 2
+        try:
+            classifier = json.loads(classifier_path.read_text(encoding="utf-8"))
+            fires = should_fire(sub_skill_name, classifier)
+        except ValueError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+        print(json.dumps({"sub_skill": sub_skill_name, "fires": fires}))
+        return 0 if fires else 1
 
     # --- Default: pack-build mode ---
     if len(argv) < 5:

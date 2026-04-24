@@ -1,0 +1,26 @@
+{
+  "mode": "spec",
+  "input": "/Users/carterking/Projects/skill-factory/skill-factory/fixtures/stage-9b/omnibus-5-trait.md",
+  "traits": {
+    "has_references": {
+      "fires": true,
+      "evidence": "spec mentions reference-content signals: ['reference file', 'framework', 'knowledge base']"
+    },
+    "has_phases": {
+      "fires": true,
+      "evidence": "Happy-path walkthrough has 5 numbered steps"
+    },
+    "has_hitl": {
+      "fires": true,
+      "evidence": "multiple HITL signals: [\"'\\\\\\\\bwait for (?:the )?user\\\\\\\\b'x1\", \"'\\\\\\\\buser confirm(?:s|ation|ed)?\\\\\\\\b'x1\", \"'\\\\\\\\buser (?:chooses|decides|selects)\\\\\\\\b'x1\", \"'\\\\\\\\bbefore proceeding\\\\\\\\b'x1\"]"
+    },
+    "is_scheduled": {
+      "fires": true,
+      "evidence": "scheduling keywords: ['cron', 'scheduled', 'weekly']"
+    },
+    "invokes_skills": {
+      "fires": true,
+      "evidence": "invokes existing skill(s): ['docx', 'pptx']"
+    }
+  }
+}

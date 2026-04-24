@@ -10,7 +10,7 @@ allowed-tools:
 
 # skill-signed-handoff
 
-**Read ONLY your `phases/04-skill-signed-handoff/input.md`** (per BP-033). The driver has distilled the spec's "Existing skills to reuse" section, the terminal-upstream and entry-downstream phase identifiers, the argument-bearing field list, and the specific BP file paths into `input.md`. Do NOT open the `patterns/` directory directly. Do NOT open the full spec file directly.
+**Read ONLY your driver-supplied `input.md`** (per BP-033). The driver materializes it under `phases/07-skill-signed-handoff/input.md` (Stage 9b wiring; the path is also embedded in your invocation prompt). The pack has distilled the spec's "Existing skills to reuse" section, the terminal-upstream and entry-downstream phase identifiers, the argument-bearing field list, and the specific BP file paths. Do NOT open the `patterns/` directory directly. Do NOT open the full spec file directly.
 
 The one thing this skill produces: a `<skill-slug>_signature.py` script that passes `scripts/handoff_lint.py` against `references/signed-handoff-rules.md`, stamped from `scripts/signature-template.py` with the target skill's SIGNED_FIELDS list.
 
@@ -29,12 +29,12 @@ This sub-skill fires only when the classifier's trait verdicts have BOTH `has_ph
 
 ### Driver-invoked (normal case)
 
-Called as an isolated `Agent` subtask from the Skill Factory driver's Phase 4.
+Called as an isolated `Agent` subtask from the Skill Factory driver's Phase 7 (Stage 9b wiring; AND-gated on `has_phases ∧ invokes_skills`).
 
 **Reads:**
-- `phases/04-skill-signed-handoff/input.md` — the driver-materialized context pack.
+- `phases/07-skill-signed-handoff/input.md` — the driver-materialized context pack.
 
-**Writes (to `phases/04-skill-signed-handoff/`):**
+**Writes (to `phases/07-skill-signed-handoff/`):**
 - `output-signature-template.py` — the stamped signature script ready to drop into the target skill's `scripts/` directory.
 - `notes.md` — `BLOCKER:` lines if any, otherwise short informational observations (declared fields, upstream/downstream phase bindings).
 

@@ -1,0 +1,26 @@
+{
+  "mode": "spec",
+  "input": "/Users/carterking/Projects/skill-factory/skill-factory/fixtures/stage-9b/narrow-signed-handoff.md",
+  "traits": {
+    "has_references": {
+      "fires": false,
+      "evidence": "no reference-content signals in spec body"
+    },
+    "has_phases": {
+      "fires": true,
+      "evidence": "Happy-path walkthrough has 5 numbered steps"
+    },
+    "has_hitl": {
+      "fires": false,
+      "evidence": "insufficient HITL signals (found [])"
+    },
+    "is_scheduled": {
+      "fires": false,
+      "evidence": "no scheduling keywords"
+    },
+    "invokes_skills": {
+      "fires": true,
+      "evidence": "invokes existing skill(s): ['pptx']"
+    }
+  }
+}

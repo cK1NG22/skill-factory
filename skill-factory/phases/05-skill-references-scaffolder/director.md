@@ -24,16 +24,29 @@ Exit 0 → enter Phase 5. Exit 1 → skip to next phase.
 
 1. **Pre-scaffold the target skill directory.** The sub-skill is a
    verifier — it walks an existing tree. The driver creates that tree
-   from the spec's "Reference exemplars" section:
+   from the spec's "Reference exemplars" section. Pass `--has-phases`
+   when `classifier.json` reports `has_phases.fires: true` so the
+   pre-scaffold also creates an empty `phases/` placeholder for BP-009
+   parallel-folder verification:
 
    ```bash
+   # Check has_phases first to know whether to add the flag
+   HAS_PHASES_FLAG=""
+   python3 -c "
+   import json, sys
+   t = json.load(open('<work>/classifier.json'))['traits']
+   sys.exit(0 if t.get('has_phases', {}).get('fires') else 1)
+   " && HAS_PHASES_FLAG="--has-phases"
+
    python3 ~/Projects/skill-factory/skill-factory/scripts/build_context_pack.py \
-       --prescaffold-references <spec-path> <work>/scaffolded-skill
+       --prescaffold-references <spec-path> <work>/scaffolded-skill $HAS_PHASES_FLAG
    ```
 
    Creates `<work>/scaffolded-skill/references/<name>.md` (one empty
    placeholder per spec entry) plus a stub `SKILL.md` with one canonical
-   citation per file. Returns the list of scaffolded names as JSON.
+   citation per file. When `--has-phases` is passed, also creates an
+   empty `<work>/scaffolded-skill/phases/` directory. Returns the list
+   of scaffolded names + the `has_phases` flag value as JSON.
 
 2. **Materialize the references-scaffolder pack** with the target dir:
 
