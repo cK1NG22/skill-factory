@@ -411,6 +411,39 @@ class TestGhIntegration(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("rate", (msg or "").lower())
 
+    # ---- Stage 12 item 3 — collaborator status disambiguation ----
+    # `gh_add_collaborator` returns success regardless of whether the user
+    # was added directly (member, in /collaborators) or invited (pending,
+    # in /invitations). Stage 11d surfaced a real case where the optimistic
+    # "present" note was emitted for an invitation that was still pending
+    # acceptance. `gh_collaborator_status` queries the two lists and
+    # disambiguates so `_do_gh` can emit a truthful note.
+
+    def test_gh_collaborator_status_present_when_in_collaborators_list(self):
+        """User listed in /collaborators (full member): status='present'."""
+        # subprocess.run is called once with --jq filtering on the
+        # collaborators list; the filter prints the matched login.
+        with mock.patch("materialize_skill.subprocess.run",
+                        return_value=_fake_proc(0, stdout="adamkingai\n")):
+            status = ms.gh_collaborator_status("acme-claude-skills",
+                                               "adamkingai")
+        self.assertEqual(status, "present")
+
+    def test_gh_collaborator_status_invited_when_in_invitations_list(self):
+        """User absent from /collaborators but present in /invitations:
+        status='invited' (pending acceptance)."""
+        # First call (collaborators) → empty stdout (not a member yet).
+        # Second call (invitations) → matched login.
+        calls = [
+            _fake_proc(0, stdout=""),
+            _fake_proc(0, stdout="adamkingai\n"),
+        ]
+        with mock.patch("materialize_skill.subprocess.run",
+                        side_effect=calls):
+            status = ms.gh_collaborator_status("acme-claude-skills",
+                                               "adamkingai")
+        self.assertEqual(status, "invited")
+
 
 # --------------------------------------------------------------------------
 # TestForceFlag — 2 tests.
@@ -512,6 +545,154 @@ class TestCli(unittest.TestCase):
 # the Stage 11c live run produced (commits 1dde5a2 + this stage), but
 # now codified as a regression check the test suite enforces forever.
 # --------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------
+# TestExtractDescription — 6 tests (Stage 12 item 2).
+#
+# `_extract_description` reads the `description:` field from a SKILL.md
+# frontmatter. The Stage 11e per-client README leak surfaced when an author
+# wrote the description as a YAML block scalar (`description: >-` then
+# indented continuation lines) — the original regex captured the literal
+# `>-` token and the README rendered "- `<slug>` — >-".
+#
+# These tests pin behaviour for the four YAML block-scalar styles plus a
+# plain-scalar control and a "stop at next top-level key" boundary check.
+# Because the README list-item consumer needs a single-line value, the
+# extractor flattens any block scalar to space-joined text regardless of
+# fold/literal semantics.
+# --------------------------------------------------------------------------
+
+class TestExtractDescription(unittest.TestCase):
+    """`_extract_description` against the four YAML block-scalar styles."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _skill_md(self, body: str) -> Path:
+        p = self.tmp / "SKILL.md"
+        p.write_text(textwrap.dedent(body).lstrip(), encoding="utf-8")
+        return p
+
+    def test_plain_scalar_returned_verbatim(self):
+        """Baseline: a single-line description (no block indicator) is
+        returned exactly as written. This is the existing happy path —
+        the block-scalar fix must not regress it."""
+        skill = self._skill_md("""
+            ---
+            name: example-skill
+            description: A short single-line description.
+            ---
+
+            body
+        """)
+        self.assertEqual(
+            ms._extract_description(skill),
+            "A short single-line description.",
+        )
+
+    def test_folded_strip_block_scalar(self):
+        """`>-` folded scalar with strip chomping: continuation lines
+        are joined with spaces, no trailing newline. Must NOT return
+        the literal `>-` indicator."""
+        skill = self._skill_md("""
+            ---
+            name: example-skill
+            description: >-
+              First sentence of the wrapped description.
+              Second sentence on the next line.
+            ---
+
+            body
+        """)
+        self.assertEqual(
+            ms._extract_description(skill),
+            "First sentence of the wrapped description. "
+            "Second sentence on the next line.",
+        )
+
+    def test_folded_keep_block_scalar(self):
+        """`>` folded scalar (keep chomping): same fold semantics, plus
+        a trailing newline that the README consumer doesn't care about.
+        Flattened to single line."""
+        skill = self._skill_md("""
+            ---
+            name: example-skill
+            description: >
+              Folded line one.
+              Folded line two.
+            ---
+
+            body
+        """)
+        self.assertEqual(
+            ms._extract_description(skill),
+            "Folded line one. Folded line two.",
+        )
+
+    def test_literal_strip_block_scalar(self):
+        """`|-` literal scalar (strip chomping): YAML preserves newlines,
+        but the README consumer needs a single line — so the extractor
+        flattens internal newlines to spaces."""
+        skill = self._skill_md("""
+            ---
+            name: example-skill
+            description: |-
+              Literal line one.
+              Literal line two.
+            ---
+
+            body
+        """)
+        self.assertEqual(
+            ms._extract_description(skill),
+            "Literal line one. Literal line two.",
+        )
+
+    def test_literal_keep_block_scalar(self):
+        """`|` literal scalar (keep chomping): same as `|-` for our
+        single-line flattening contract."""
+        skill = self._skill_md("""
+            ---
+            name: example-skill
+            description: |
+              Literal keep line one.
+              Literal keep line two.
+            ---
+
+            body
+        """)
+        self.assertEqual(
+            ms._extract_description(skill),
+            "Literal keep line one. Literal keep line two.",
+        )
+
+    def test_block_scalar_stops_at_next_top_level_key(self):
+        """Boundary: a block scalar must end when indentation drops back
+        to column 0 (next top-level frontmatter key). Without this guard,
+        the extractor would slurp `type:` / `version:` and emit them as
+        part of the description."""
+        skill = self._skill_md("""
+            ---
+            name: example-skill
+            description: >-
+              Wrapped description body line one.
+              Wrapped description body line two.
+            type: skill
+            version: 1
+            ---
+
+            body
+        """)
+        self.assertEqual(
+            ms._extract_description(skill),
+            "Wrapped description body line one. "
+            "Wrapped description body line two.",
+        )
+
 
 class TestStage11cE2EIntegration(_MaterializeBase):
     """Phase 8 (gate) + Phase 9 (materialize) end-to-end on tmpfs."""
@@ -621,6 +802,101 @@ class TestStage11cE2EIntegration(_MaterializeBase):
             any("already installed" in n for n in second.notes),
             f"expected 'already installed' note; got {second.notes}",
         )
+
+
+# --------------------------------------------------------------------------
+# TestEnsureLocalOrigin — 2 tests (Stage 12 item 4).
+#
+# `gh_ensure_local_origin` reconciles the case where the GitHub remote
+# already exists (so `gh_repo_view` returns exists=True and `gh repo create`
+# is skipped) but the LOCAL clone has no `origin` remote configured + has
+# never pushed. Stage 11e surfaced this when Carter ran the factory once
+# with `Remote repo: no` and then re-ran with `Remote repo: yes` — the
+# materializer logged "remote already exists" but never wired up local
+# origin or pushed.
+#
+# Plan D6 originally located the fix in the Phase 9 director (driver-level);
+# pre-implementation investigation refuted that hypothesis (see
+# project-stage-12-item-4-layer-flip.md). Fix is materializer-level.
+#
+# Tests use a real bare git repo as the remote-side fixture so we exercise
+# actual git semantics rather than mocking subprocess.run for git ops.
+# --------------------------------------------------------------------------
+
+class TestEnsureLocalOrigin(unittest.TestCase):
+    """`gh_ensure_local_origin` reconciles missing local `origin` remote."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        # Bare repo acts as the "GitHub remote" side of the fixture.
+        self.bare = self.tmp / "origin.git"
+        subprocess.run(["git", "init", "--bare", "-q", str(self.bare)],
+                       check=True)
+        # Local working repo with one commit. Inject author identity inline
+        # so the test doesn't depend on ambient git config.
+        self.local = self.tmp / "local"
+        self.local.mkdir()
+        subprocess.run(["git", "init", "-q", "-b", "main"],
+                       cwd=self.local, check=True)
+        (self.local / "README.md").write_text("hello\n", encoding="utf-8")
+        env = {**os.environ,
+               "GIT_AUTHOR_NAME": "Test", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "Test", "GIT_COMMITTER_EMAIL": "t@t"}
+        subprocess.run(["git", "add", "README.md"],
+                       cwd=self.local, check=True, env=env)
+        subprocess.run(["git", "commit", "-q", "-m", "init"],
+                       cwd=self.local, check=True, env=env)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _origin_url(self) -> str | None:
+        proc = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=self.local, capture_output=True, text=True, check=False,
+        )
+        return proc.stdout.strip() if proc.returncode == 0 else None
+
+    def test_adds_origin_and_pushes_when_origin_missing(self):
+        """When local repo has no `origin` configured, the helper adds
+        it pointing at remote_url and pushes HEAD. The bare repo on the
+        remote side ends up with the local commit reachable via ls-remote."""
+        self.assertIsNone(self._origin_url(),
+                          "precondition: no origin configured")
+        notes: list[str] = []
+        result = ms.gh_ensure_local_origin(self.local, str(self.bare), notes)
+        self.assertIsNone(result.get("blocker"))
+        self.assertEqual(self._origin_url(), str(self.bare))
+        # Push reached the bare repo: ls-remote should list at least one ref.
+        ls = subprocess.run(
+            ["git", "ls-remote", str(self.bare)],
+            capture_output=True, text=True, check=True,
+        )
+        self.assertTrue(ls.stdout.strip(),
+                        "bare repo should have at least one ref after push")
+        self.assertTrue(any("reconciled local origin" in n for n in notes),
+                        f"expected reconcile note; got {notes}")
+
+    def test_no_op_when_origin_already_configured(self):
+        """When `origin` is already set, the helper leaves it alone — no
+        re-add, no re-push, no reconcile note. This is the byte-identical
+        re-run case where Stage 11c idempotency already produced the right
+        local state and the helper must not churn it."""
+        # Pre-configure origin to a different URL so we can detect any
+        # accidental rewrite.
+        existing = self.tmp / "other-bare.git"
+        subprocess.run(["git", "init", "--bare", "-q", str(existing)],
+                       check=True)
+        subprocess.run(["git", "remote", "add", "origin", str(existing)],
+                       cwd=self.local, check=True)
+        notes: list[str] = []
+        result = ms.gh_ensure_local_origin(self.local, str(self.bare), notes)
+        self.assertIsNone(result.get("blocker"))
+        # URL unchanged — helper did NOT overwrite the existing origin.
+        self.assertEqual(self._origin_url(), str(existing))
+        self.assertFalse(any("reconciled local origin" in n for n in notes),
+                         f"expected no reconcile note; got {notes}")
 
 
 if __name__ == "__main__":

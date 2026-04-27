@@ -13,14 +13,27 @@
 
 **Incorrect:** `Acme_Onboarding`, `claude-helper`, `My Skill`
 
+## Slug convention (Stage 12)
+
+**Rule:** For factory-authored client skills, the slug equals the bare
+`<skill-slug>` from the spec. The company prefix is NOT prepended — namespacing
+is provided by the per-client repo at `~/Projects/<company>-claude-skills/`.
+
+**Example:** spec `company: acme` + `skill slug: board-memo` → `name: board-memo`.
+
+**Non-prescriptive:** authors who supply an explicit `<company>-<slug>` in their
+spec (e.g., for multi-tenant scenarios) are not rejected by the validator.
+The frontmatter Agent simply stops *adding* the prefix; authors remain free to
+include one.
+
 ## Meta-skill exception (Stage 10c)
 
 **Surfaced by:** Stage 9c self-bootstrap (the factory regenerated itself
 under the slug `skill-factory-skill-factory`, vs the committed slug
 `skill-factory`).
 
-**Rule:** Factory-internal sub-skills are exempt from the implicit
-`<company>-<slug>` convention. The 8 meta-skill slugs as of Stage 10c are:
+**Rule:** Factory-internal sub-skills are exempt from any `<company>-<slug>`
+convention. The 9 meta-skill slugs as of Stage 10c are:
 
 - `skill-compliance`
 - `skill-spec-validator`

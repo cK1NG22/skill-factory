@@ -8,7 +8,7 @@ The exact string content of `output.yaml`:
 
 ```yaml
 ---
-name: acme-board-memo
+name: board-memo
 description: >-
   Generates a formatted .docx board memo from a markdown outline using Acme's
   cover page and section styling. Use when "generate board memo",
@@ -26,7 +26,7 @@ allowed-tools:
 
 Acceptance criteria for `output.yaml`:
 - `scripts/frontmatter_lint.py output.yaml` returns `passed: true` with 0 fails and 0 warns.
-- `name` is `acme-board-memo` (17 chars, passes BP-003 regex).
+- `name` is `board-memo` (9 chars, passes BP-003 regex).
 - `description` is between 80 and 1024 chars (approximately 460).
 - Description contains at least 5 quoted trigger phrases with spaces.
 - Description contains a `Do NOT use for` clause.
@@ -45,7 +45,7 @@ Contains the `output.yaml` block followed by a `## Rationale` section. Example r
 
 ## Rationale
 
-- **Name**: `<company>-<skill-slug>` = `acme-board-memo`. 17 chars, under the 64-char limit. Lowercase letters + hyphens only, passes BP-003.
+- **Name**: `<skill-slug>` = `board-memo`. 9 chars, under the 64-char limit. Lowercase letters + hyphens only, passes BP-003. (Company namespace is provided by the per-client repo, not the slug.)
 - **Description length**: approximately 460 chars, within the 80–1024 BP-004 window.
 - **Trigger phrases**: all 7 from the spec included verbatim. Order preserved from the spec (most specific first).
 - **Negative clause**: `Do NOT use for generic markdown-to-docx conversion (use /docx directly)` — derived from the spec's Anti-goals and the composition-with-/docx pattern.

@@ -73,9 +73,9 @@ For each `patterns/bp-NNN-*.md` path listed under "BPs to enforce" in the input 
 
 ### Step 4 — Construct `name`
 
-- `name = <company>-<skill-slug>` where both come from the spec excerpt.
-- Verify the combined string against Rule 1: `^[a-z][a-z0-9-]{1,63}$`, not in reserved-names set.
-- If the combined name exceeds 64 chars, write `BLOCKER: combined name '<company>-<slug>' exceeds 64 char limit (len=N); upstream spec must shorten Skill slug` to `notes.md` and STOP.
+- `name = <skill-slug>` taken directly from the spec excerpt. The company prefix is NOT prepended; per-client repos at `~/Projects/<company>-claude-skills/` provide the namespace.
+- Verify the slug against Rule 1: `^[a-z][a-z0-9-]{1,63}$`, not in reserved-names set.
+- If the slug exceeds 64 chars, write `BLOCKER: slug '<slug>' exceeds 64 char limit (len=N); upstream spec must shorten Skill slug` to `notes.md` and STOP.
 
 ### Step 5 — Construct `description`
 

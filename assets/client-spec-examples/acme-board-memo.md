@@ -34,7 +34,7 @@ Generates a formatted .docx board memo from a markdown outline using Acme's cove
 A path to a `.md` file containing a board memo outline. The markdown file MUST include four top-level sections in this order: `# Title`, `## Summary`, `## Discussion`, `## Recommendation`. An optional YAML front-matter block (delimited by `---`) may supply two keys: `meeting_date` (ISO-8601 date string) and `author` (string).
 
 ## Outputs
-A `.docx` file at `~/Claude/acme-board-memo/<input-stem>.docx`. The document contains, in order: (1) an Acme-branded cover page with the title, meeting date, and author pulled from the input; (2) an auto-generated table of contents; (3) the four required sections styled with Acme's `SectionHeader` paragraph style; (4) a "CONFIDENTIAL — BOARD EYES ONLY" repeating footer on every page. On success, prints the absolute output path to stdout.
+A `.docx` file at `~/Claude/board-memo/<input-stem>.docx`. The document contains, in order: (1) an Acme-branded cover page with the title, meeting date, and author pulled from the input; (2) an auto-generated table of contents; (3) the four required sections styled with Acme's `SectionHeader` paragraph style; (4) a "CONFIDENTIAL — BOARD EYES ONLY" repeating footer on every page. On success, prints the absolute output path to stdout.
 
 ## Happy-path walkthrough
 1. Read the input `.md` file from the path argument. Fail fast with exit code 1 if the path does not exist.
@@ -44,12 +44,12 @@ A `.docx` file at `~/Claude/acme-board-memo/<input-stem>.docx`. The document con
 5. Insert an auto-generated table of contents on the page immediately after the cover.
 6. For each of Summary, Discussion, and Recommendation: write the content under an H1 styled with Acme's `SectionHeader` paragraph style. Preserve inline bold, italic, hyperlinks, and bulleted lists from the source markdown.
 7. Add a repeating page footer reading "CONFIDENTIAL — BOARD EYES ONLY" in 10pt red Acme-brand type on every page including the cover.
-8. Ensure the output directory `~/Claude/acme-board-memo/` exists. Create it if missing.
-9. Write the finished `.docx` to `~/Claude/acme-board-memo/<input-stem>.docx`.
+8. Ensure the output directory `~/Claude/board-memo/` exists. Create it if missing.
+9. Write the finished `.docx` to `~/Claude/board-memo/<input-stem>.docx`.
 10. Print the absolute output path to stdout. Do not auto-open the file.
 
 ## Success signals
-- The output `.docx` file exists at `~/Claude/acme-board-memo/<input-stem>.docx` after the skill completes.
+- The output `.docx` file exists at `~/Claude/board-memo/<input-stem>.docx` after the skill completes.
 - `file <output-path>` reports the output as a Microsoft Word document.
 - Opening the output in Word shows a cover page on page 1 populated with the title plus either the front-matter values or `TBD` placeholders for meeting date and author.
 - Every page carries the footer text "CONFIDENTIAL — BOARD EYES ONLY".

@@ -280,6 +280,79 @@ def gh_add_collaborator(slug: str, user: str = GH_COLLABORATOR
     return False, err or None
 
 
+def gh_ensure_local_origin(repo_path: Path, remote_url: str,
+                           notes: list[str]) -> dict:
+    """Reconcile a missing local `origin` remote against an existing
+    GitHub remote. No-op when origin is already configured. Returns
+    {'blocker': str | None}.
+
+    Stage 11e bug: a re-run with `Remote repo: yes` (after a Run 1 with
+    --no-gh) found `gh_repo_view` reporting exists=True and skipped
+    `gh repo create --source=. --push` — but the local clone was never
+    wired up to a remote, so no commits ever reached GitHub. This helper
+    fills the gap by adding origin + pushing HEAD when the local repo
+    is missing an `origin` configuration."""
+    check = subprocess.run(
+        ["git", "remote", "get-url", "origin"],
+        cwd=repo_path, capture_output=True, text=True, check=False,
+    )
+    if check.returncode == 0 and check.stdout.strip():
+        return {"blocker": None}
+    add = subprocess.run(
+        ["git", "remote", "add", "origin", remote_url],
+        cwd=repo_path, capture_output=True, text=True, check=False,
+    )
+    if add.returncode != 0:
+        return {"blocker": (
+            f"gh: `git remote add origin {remote_url}` failed — "
+            f"{add.stderr.strip()}"
+        )}
+    push = subprocess.run(
+        ["git", "push", "-u", "origin", "HEAD"],
+        cwd=repo_path, capture_output=True, text=True, check=False,
+    )
+    if push.returncode != 0:
+        return {"blocker": (
+            f"gh: `git push -u origin HEAD` failed — "
+            f"{push.stderr.strip()}"
+        )}
+    notes.append(
+        f"gh: reconciled local origin → {remote_url} and pushed HEAD"
+    )
+    return {"blocker": None}
+
+
+def gh_collaborator_status(slug: str, user: str = GH_COLLABORATOR
+                           ) -> str | None:
+    """Disambiguate post-`gh_add_collaborator` state. Returns:
+      "present" — user is a full member (in /collaborators).
+      "invited" — user has a pending invitation (in /invitations).
+      None      — neither query confirmed; caller should fall back to
+                  the optimistic default rather than emit a misleading
+                  note.
+    Stage 11d surfaced a real case where the optimistic "present" wording
+    was emitted for an invitation still pending acceptance — this helper
+    closes that gap by querying the two lists explicitly."""
+    try:
+        coll = subprocess.run(
+            ["gh", "api", f"repos/{GH_OWNER}/{slug}/collaborators",
+             "--jq", f'.[] | select(.login=="{user}") | .login'],
+            capture_output=True, text=True, check=False,
+        )
+        if coll.returncode == 0 and coll.stdout.strip() == user:
+            return "present"
+        inv = subprocess.run(
+            ["gh", "api", f"repos/{GH_OWNER}/{slug}/invitations",
+             "--jq", f'.[] | select(.invitee.login=="{user}") | .invitee.login'],
+            capture_output=True, text=True, check=False,
+        )
+        if inv.returncode == 0 and inv.stdout.strip() == user:
+            return "invited"
+    except FileNotFoundError:
+        return None
+    return None
+
+
 # --------------------------------------------------------------------------
 # Filesystem helpers.
 # --------------------------------------------------------------------------
@@ -380,8 +453,37 @@ def _extract_description(skill_md: Path) -> str | None:
     if end == -1:
         return None
     fm = text[3:end]
-    m = re.search(r"^\s*description\s*:\s*(.+)$", fm, re.MULTILINE)
-    return m.group(1).strip() if m else None
+    m = re.search(
+        r"^\s*description\s*:\s*(?P<value>.*)$", fm, re.MULTILINE,
+    )
+    if not m:
+        return None
+    value = m.group("value").strip()
+    # Plain scalar (no YAML block-scalar header): return verbatim.
+    if not re.match(r"^[>|][+-]?\s*$", value):
+        return value or None
+    # YAML block scalar (>-, >, >+, |-, |, |+): collect continuation
+    # lines until indentation drops back to column 0 (next top-level
+    # frontmatter key) or below the body's own indent. The README list
+    # consumer needs a single line, so flatten internal whitespace
+    # rather than preserving fold/literal newlines.
+    after = fm[m.end():]
+    body: list[str] = []
+    base_indent: int | None = None
+    for raw in after.splitlines():
+        if not raw.strip():
+            body.append("")
+            continue
+        line_indent = len(raw) - len(raw.lstrip(" "))
+        if line_indent == 0:
+            break
+        if base_indent is None:
+            base_indent = line_indent
+        elif line_indent < base_indent:
+            break
+        body.append(raw[base_indent:])
+    flattened = re.sub(r"\s+", " ", " ".join(body)).strip()
+    return flattened or None
 
 
 _GIT_AUTHOR_FLAGS = [
@@ -647,6 +749,9 @@ def _do_gh(repo_path: Path, repo_slug: str, notes: list[str]) -> dict:
     exists, url = gh_repo_view(repo_slug)
     if exists:
         notes.append(f"gh: remote already exists at {url}")
+        recon = gh_ensure_local_origin(repo_path, url, notes)
+        if recon.get("blocker"):
+            return {"blocker": recon["blocker"], "url": None}
     else:
         ok, create_msg = gh_repo_create(repo_path, repo_slug, private=True)
         if not ok:
@@ -668,9 +773,17 @@ def _do_gh(repo_path: Path, repo_slug: str, notes: list[str]) -> dict:
             f"{coll_err}"
         )
     else:
-        notes.append(
-            f"gh: collaborator {GH_COLLABORATOR} present (push permission)"
-        )
+        status = gh_collaborator_status(repo_slug)
+        if status == "invited":
+            notes.append(
+                f"gh: collaborator {GH_COLLABORATOR} invited "
+                f"(pending acceptance, write permission)"
+            )
+        else:
+            notes.append(
+                f"gh: collaborator {GH_COLLABORATOR} present "
+                f"(push permission)"
+            )
 
     return {"blocker": None, "url": url}
 

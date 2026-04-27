@@ -40,7 +40,7 @@ Any top-level key not in the allow-list (above + argument-hint + model) is flagg
 
 **Why it matters:** runtime invocation uses the name as the slash command. Names with uppercase, underscores, or spaces cause silent invocation failures. See BP-003.
 
-**Factory convention:** for factory-authored skills, the name is `<company>-<skill-slug>` where both halves follow the same regex. The factory prepends `<company>-` so the spec's `Skill slug` section should NOT include the company prefix.
+**Factory convention:** for factory-authored skills, the name equals the bare `<skill-slug>` from the spec. No company prefix is prepended — namespacing is provided by the per-client repo at `~/Projects/<company>-claude-skills/`. The spec's `Skill slug` section should contain the bare skill name only (e.g., `board-memo`, not `acme-board-memo`).
 
 ---
 
@@ -126,7 +126,7 @@ The compliant frontmatter is:
 
 ```yaml
 ---
-name: acme-board-memo
+name: board-memo
 description: >-
   Generates a formatted .docx board memo from a markdown outline using Acme's
   cover page and section styling. Use when "generate board memo",
@@ -143,7 +143,7 @@ allowed-tools:
 ```
 
 Breakdown:
-- `name` = `<company>-<slug>` = 17 chars, passes Rule 1.
+- `name` = `<skill-slug>` = `board-memo`. 9 chars, passes Rule 1. (The `acme` company namespace lives in the per-client repo path, not the slug.)
 - `description` = ~460 chars, passes Rule 2 (under 1024, over 80).
 - 7 quoted trigger phrases, passes Rule 3 (≥3; within factory-recommended 5–10).
 - `Do NOT use for…` clause, passes Rule 5.
@@ -155,7 +155,7 @@ Breakdown:
 
 Per BP-028, emit `BLOCKER:` to `notes.md` and exit without writing `output.yaml` if:
 - The spec excerpt in `input.md` is missing the Company, Skill slug, One-line description, or Trigger phrases section. (These are required by the spec-validator's contract — their absence means the input.md was built against an invalid spec, which is a driver bug, not a frontmatter-authoring problem.)
-- The Skill slug is `> 40 chars` (combined with a `<company>-` prefix it would breach Rule 1's 64-char limit and forcing a truncation would silently corrupt the name).
+- The Skill slug is `> 64 chars` (it would breach Rule 1's 64-char limit and forcing a truncation would silently corrupt the name).
 - `scripts/frontmatter_lint.py` returns `fails: > 0` on the draft AND a second iteration also fails (skill attempts self-correction once; two consecutive failures = BLOCKER, let a human inspect).
 
 Blockers are recoverable in the sense that fixing the upstream spec lets the pipeline re-run. They are NOT gaps to negotiate mid-flow.

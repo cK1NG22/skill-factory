@@ -27,14 +27,14 @@ Generates a formatted .docx board memo from a markdown outline using Acme's cove
 A path to a `.md` file containing a board memo outline with required sections (Title, Summary, Discussion, Recommendation).
 
 ### Outputs
-A `.docx` file at `~/Claude/acme-board-memo/<input-stem>.docx`.
+A `.docx` file at `~/Claude/board-memo/<input-stem>.docx`.
 
 ### Happy-path walkthrough
 1. Read the input `.md` file from the path argument.
 2. Parse optional YAML front-matter for meeting_date and author.
 3. Validate the four required sections.
 4. Invoke the `/docx` skill to build the document.
-5. Write the output to `~/Claude/acme-board-memo/<input-stem>.docx`.
+5. Write the output to `~/Claude/board-memo/<input-stem>.docx`.
 6. Print the absolute output path to stdout.
 
 ### Anti-goals

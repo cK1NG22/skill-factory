@@ -29,7 +29,8 @@ your-company
 <!--
   Short hyphenated identifier for the skill itself. 2-40 chars,
   lowercase letters, digits, and hyphens only.
-  Do NOT include the company prefix — the factory prepends it.
+  Use the bare skill name — no company prefix needed. Namespacing
+  comes from the per-client repo at `~/Projects/<company>-claude-skills/`.
   Examples: `board-memo`, `onboarding-checklist`, `invoice-render`.
 -->
 your-skill-name
