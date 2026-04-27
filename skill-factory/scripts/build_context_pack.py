@@ -137,6 +137,13 @@ _SUB_SKILL_BPS: dict[str, list[str]] = {
     "skill-signed-handoff": [
         "bp-024-signed-handoffs.md",
     ],
+    # Stage 10b: skill-compliance-gate is the universal Phase 8 closure step.
+    # Empty BP list — the gate's BPs are hardcoded in compliance_check.py
+    # (the canonical 13-check core via subprocess) plus Check 14 (meta-BP
+    # citation scan) inside gate.py itself. The driver does not inject BP
+    # files into the pack because the gate does not author content; it
+    # verifies an already-assembled tree.
+    "skill-compliance-gate": [],
 }
 
 # Conditional BPs keyed by trait; unioned into the pack when the trait fires.
@@ -229,6 +236,17 @@ _SUB_SKILL_SECTIONS: dict[str, list[str]] = {
         "Failure modes",
         "Pipeline composition",
         "Argument-bearing fields",
+    ],
+    # Stage 10b: skill-compliance-gate does not need spec sections — its
+    # input.md carries `assembled_skill_path` + `work_dir` (custom fields
+    # appended below in build_pack via the gate-specific schema). The
+    # base pack scaffolding still emits a Spec excerpt block for trace,
+    # but with only Skill slug + One-line description for context. The
+    # gate does not parse spec content; this excerpt is informational.
+    "skill-compliance-gate": [
+        "Company",
+        "Skill slug",
+        "One-line description",
     ],
 }
 
@@ -335,6 +353,18 @@ _SUB_SKILL_OUTPUT_BLURB: dict[str, str] = {
         "Do NOT read any files not listed above. Do NOT open `patterns/` directly — "
         "the BP files you need are the ones listed above."
     ),
+    "skill-compliance-gate": (
+        "Write into the directory containing this `input.md` (i.e. "
+        "`<work>/phases/08-assemble-and-gate/`):\n"
+        "- `output.md` — on PASS only: a tidy summary table of the 13 checker checks "
+        "plus the Check 14 meta-BP scan result.\n"
+        "- `notes.md` — on FAIL: a single `BLOCKER:` line naming every failed required-tier "
+        "check and every Check 14 hit; on PASS: short informational observations only.\n"
+        "\n"
+        "The gate does NOT author content — it verifies the already-assembled skill at "
+        "`assembled_skill_path` (see the custom block below). On FAIL, the driver STOPs "
+        "before Phase 99 per BP-028."
+    ),
 }
 
 # --- Task lines per sub-skill ---
@@ -357,6 +387,12 @@ _SUB_SKILL_TASK: dict[str, str] = {
     "skill-signed-handoff": (
         "Stamp a `<slug>_signature.py` script for the upstream skill's terminal phase, signing the "
         "argument-bearing fields declared in the spec. Pass scripts/handoff_lint.py against the stamped script."
+    ),
+    "skill-compliance-gate": (
+        "Run the compliance gate against the assembled skill at `assembled_skill_path`. "
+        "Subprocess-call `compliance_check.py` for the 13-check audit, then run Check 14 "
+        "(meta-BP citation scan). Write `output.md` on PASS or `notes.md` with a `BLOCKER:` "
+        "line on FAIL."
     ),
 }
 
@@ -536,6 +572,41 @@ def prescaffold_references(
 # --- Main pack builder ---
 
 
+def build_gate_pack(
+    out_dir: Path,
+    assembled_skill_path: Path,
+    work_dir: Path,
+) -> Path:
+    """Stage 10b: minimal pack for skill-compliance-gate.
+
+    The gate verifies an already-assembled skill — it doesn't author content
+    from a spec. Per the plan's D-defaults, the pack carries only the two
+    fields the gate's `parse_input_md` parser reads: `assembled_skill_path`
+    and `work_dir`. No spec excerpt, no BP list, no trait block.
+
+    The gate's parser accepts `- **key**: value` lines, so emit them in that
+    exact form to stay inside its tested grammar.
+    """
+    pack = (
+        "# Input pack — skill-compliance-gate\n"
+        "\n"
+        "## Task\n"
+        f"{_SUB_SKILL_TASK['skill-compliance-gate']}\n"
+        "\n"
+        "## Assembled skill\n"
+        "\n"
+        f"- **assembled_skill_path**: {assembled_skill_path}\n"
+        f"- **work_dir**: {work_dir}\n"
+        "\n"
+        "## Output locations\n"
+        f"{_SUB_SKILL_OUTPUT_BLURB['skill-compliance-gate']}\n"
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    input_md = out_dir / "input.md"
+    input_md.write_text(pack, encoding="utf-8")
+    return input_md
+
+
 def build_pack(
     spec_path: Path,
     classifier_path: Path,
@@ -543,12 +614,27 @@ def build_pack(
     out_dir: Path,
     patterns_root: Path,
     target_skill_dir: Path | None = None,
+    assembled_skill_path: Path | None = None,
+    work_dir: Path | None = None,
 ) -> Path:
     if sub_skill_name not in _SUB_SKILL_BPS:
         raise ValueError(
             f"unsupported sub-skill: {sub_skill_name!r}. "
             f"supported: {sorted(_SUB_SKILL_BPS.keys())}"
         )
+
+    # Stage 10b: skill-compliance-gate uses a minimal pack — different schema
+    # than every other sub-skill (BP-033 still satisfied: the gate reads only
+    # input.md, but the schema is narrower). Dispatch before the standard
+    # spec-driven branch so we don't misuse spec_path/classifier_path inputs.
+    if sub_skill_name == "skill-compliance-gate":
+        if assembled_skill_path is None or work_dir is None:
+            raise ValueError(
+                "skill-compliance-gate requires assembled_skill_path and "
+                "work_dir; pass them via build_pack() or the CLI's "
+                "--assembled-skill-path / --work-dir flags."
+            )
+        return build_gate_pack(out_dir, assembled_skill_path, work_dir)
 
     spec_text = spec_path.read_text(encoding="utf-8")
     classifier = json.loads(classifier_path.read_text(encoding="utf-8"))
@@ -641,9 +727,13 @@ _DEFAULT_PATTERNS_ROOT = Path(__file__).resolve().parent.parent.parent / "patter
 _USAGE = (
     "usage:\n"
     "  build_context_pack.py <spec-path> <classifier-json> <sub-skill-name> "
-    "<out-dir> [--patterns-root <dir>] [--target-skill-dir <dir>]\n"
+    "<out-dir> [--patterns-root <dir>] [--target-skill-dir <dir>] "
+    "[--assembled-skill-path <dir> --work-dir <dir>]\n"
     "  build_context_pack.py --prescaffold-references <spec-path> <target-skill-dir>\n"
-    "  build_context_pack.py --should-fire <sub-skill-name> <classifier-json>"
+    "  build_context_pack.py --should-fire <sub-skill-name> <classifier-json>\n"
+    "\n"
+    "skill-compliance-gate target REQUIRES --assembled-skill-path and --work-dir\n"
+    "(spec-path / classifier-json are still positional but unused by the gate)."
 )
 
 
@@ -706,6 +796,42 @@ def _main(argv: list[str]) -> int:
         if i + 1 < len(argv):
             target_skill_dir = Path(argv[i + 1]).expanduser().resolve()
 
+    assembled_skill_path: Path | None = None
+    if "--assembled-skill-path" in argv:
+        i = argv.index("--assembled-skill-path")
+        if i + 1 < len(argv):
+            assembled_skill_path = Path(argv[i + 1]).expanduser().resolve()
+
+    work_dir: Path | None = None
+    if "--work-dir" in argv:
+        i = argv.index("--work-dir")
+        if i + 1 < len(argv):
+            work_dir = Path(argv[i + 1]).expanduser().resolve()
+
+    # Stage 10b: skill-compliance-gate doesn't need spec_path/classifier_path
+    # at all — its pack is built from --assembled-skill-path + --work-dir. The
+    # positional args are still required by the CLI grammar (for parser
+    # symmetry) but the file existence checks below would reject /dev/null
+    # placeholders. Skip the file checks for the gate target and dispatch
+    # directly into build_gate_pack via build_pack().
+    if sub_skill_name == "skill-compliance-gate":
+        try:
+            result = build_pack(
+                spec_path=spec_path,
+                classifier_path=classifier_path,
+                sub_skill_name=sub_skill_name,
+                out_dir=out_dir,
+                patterns_root=patterns_root,
+                target_skill_dir=target_skill_dir,
+                assembled_skill_path=assembled_skill_path,
+                work_dir=work_dir,
+            )
+        except ValueError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        print(str(result))
+        return 0
+
     if not spec_path.is_file():
         print(f"error: spec not found: {spec_path}", file=sys.stderr)
         return 2
@@ -721,6 +847,8 @@ def _main(argv: list[str]) -> int:
             out_dir=out_dir,
             patterns_root=patterns_root,
             target_skill_dir=target_skill_dir,
+            assembled_skill_path=assembled_skill_path,
+            work_dir=work_dir,
         )
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)

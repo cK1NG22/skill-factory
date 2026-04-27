@@ -32,7 +32,7 @@ not inline phase logic here.
 Pick a working directory under `~/Claude/skill-factory/<company>-<slug>/`.
 All phase outputs land under `<work>/phases/NN-<sub-skill>/`.
 
-The factory is 8 sequential phases. Each phase has its own director
+The factory is 9 sequential phases. Each phase has its own director
 under `phases/<N>-<name>/director.md`. Read the phase director when
 entering that phase — do not inline its logic here.
 
@@ -83,7 +83,14 @@ STOP and report. See `phases/07-skill-signed-handoff/references/and-gating.md`
 for why this phase uses Pattern B (predicate registry) instead of
 Pattern A (inline trait read).
 
-### Step 8 — Enter Phase 99 (report and stop)
+### Step 8 — Enter Phase 8 (assemble + compliance gate, always fires)
+
+Read `phases/08-assemble-and-gate/director.md` and execute its procedure.
+This phase has no trait gate — it runs on every factory run. On clean
+PASS, continue to Step 9. On gate FAIL, the director writes a `BLOCKER:`
+line to `<work>/notes.md` and STOPs before Phase 99 per BP-028.
+
+### Step 9 — Enter Phase 99 (report and stop)
 
 Read `phases/99-report/director.md` and execute its procedure. Print
 the per-phase summary and the work directory path.
@@ -107,13 +114,20 @@ references live under `phases/<N>-<name>/references/`.
 ## Scripts
 
 - **`scripts/trait_predicates.py`** — the 5-predicate classifier. CLI.
-- **`scripts/build_context_pack.py`** — Phases 3/4/5/6/7 pack
+- **`scripts/build_context_pack.py`** — Phases 3/4/5/6/7/8 pack
   materializer. Supports `skill-frontmatter`, `skill-phase-designer`,
-  `skill-references-scaffolder`, `skill-cron-observability`, and
-  `skill-signed-handoff` as sub-skill targets. Exposes
-  `--prescaffold-references` and `--target-skill-dir` for Phase 5
-  pre-scaffolding (Stage 9a) and `--should-fire` for Phase 7 AND-gated
-  predicate evaluation (Stage 9b). CLI.
+  `skill-references-scaffolder`, `skill-cron-observability`,
+  `skill-signed-handoff`, and `skill-compliance-gate` as sub-skill
+  targets. Exposes `--prescaffold-references` and `--target-skill-dir`
+  for Phase 5 pre-scaffolding (Stage 9a), `--should-fire` for Phase 7
+  AND-gated predicate evaluation (Stage 9b), and
+  `--assembled-skill-path` / `--work-dir` for the Phase 8 gate's
+  minimal-pack schema (Stage 10b). CLI.
+- **`scripts/assemble_skill.py`** — Phase 8a inline assembler (Stage
+  10b). Reads per-phase outputs from `<work>/phases/NN-*/` and
+  materializes a skill directory at `<work>/assembled/<slug>/` plus
+  an `ASSEMBLY-MANIFEST.json`. Exit 0/1/2 = success / missing-input /
+  malformed-input. CLI.
 
 ## Fixtures
 
@@ -141,9 +155,9 @@ cd ~/Projects/skill-factory/skill-factory && python3 -m unittest discover tests
 - **BP-025** — sub-skills are siblings, not nested
 - **BP-026** — sole human touchpoint (spec author = only user interaction point)
 - **BP-027** — input gate before classify (Phase 1 before Phase 2)
-- **BP-028** — BLOCKER convention for unrecoverable conditions
+- **BP-028** — BLOCKER convention for unrecoverable conditions (Phase 8 gate FAIL halts before Phase 99)
 - **BP-029** — build incrementally (why Wave 3 phases are deferred until their sub-skills ship standalone)
 - **BP-031** — co-locate co-evolving tools (driver + scripts + fixtures in one repo)
 - **BP-032** — fixtures at skill root
-- **BP-033** — driver-materialized context packs (the `input.md` contract every sub-skill consumes)
-- **BP-034** — sub-skills only for cross-skill reuse (enforced at Phase 2 via `invokes_skills` ecosystem check)
+- **BP-033** — driver-materialized context packs (the `input.md` contract every sub-skill consumes; Phase 8 gate uses a narrower schema, still BP-033-compliant)
+- **BP-034** — sub-skills only for cross-skill reuse (enforced at Phase 2 via `invokes_skills` ecosystem check; Phase 8 gate is itself a BP-034 case — cross-uses `compliance_check.py`)

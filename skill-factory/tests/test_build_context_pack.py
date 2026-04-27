@@ -992,5 +992,211 @@ class TestStage9bWiring(unittest.TestCase):
             self.assertEqual(payload, {"sub_skill": "skill-signed-handoff", "fires": False})
 
 
+class TestStage10bWiring(unittest.TestCase):
+    """Stage 10b: skill-compliance-gate registration + minimal-pack schema.
+
+    The gate is the first sub-skill in the factory whose input.md schema
+    deviates from the standard spec-driven shape. It carries only
+    `assembled_skill_path` + `work_dir` (per plan D1). The standard
+    Tier-1/2/3 dicts still need symmetric entries so every other piece
+    of the pipeline (resolve_bp_paths, should_fire, error messages)
+    treats the gate as a first-class sub-skill.
+    """
+
+    # ---------- Tier-1 / Tier-2 / Tier-3 registration ----------
+
+    def test_gate_registered_in_all_4_tier1_dicts(self):
+        for registry in (
+            bcp._SUB_SKILL_BPS,
+            bcp._SUB_SKILL_SECTIONS,
+            bcp._SUB_SKILL_OUTPUT_BLURB,
+            bcp._SUB_SKILL_TASK,
+        ):
+            self.assertIn("skill-compliance-gate", registry)
+
+    def test_gate_has_no_tier2_conditional_entries(self):
+        """The gate's behavior is fixed — it audits everything, every run."""
+        self.assertNotIn(
+            "skill-compliance-gate", bcp._SUB_SKILL_CONDITIONAL_BPS
+        )
+        self.assertNotIn(
+            "skill-compliance-gate", bcp._SUB_SKILL_CONDITIONAL_SECTIONS
+        )
+
+    def test_gate_not_in_predicate_registry(self):
+        """Gate is universal-fires; should_fire's default-to-True applies."""
+        self.assertNotIn(
+            "skill-compliance-gate", bcp._SUB_SKILL_TRIGGER_PREDICATE
+        )
+
+    def test_should_fire_gate_always_true(self):
+        # Empty / null / missing / present-with-nothing-firing — all fire.
+        self.assertTrue(bcp.should_fire("skill-compliance-gate", {"traits": {}}))
+        self.assertTrue(
+            bcp.should_fire("skill-compliance-gate", {"traits": None})
+        )
+        self.assertTrue(bcp.should_fire("skill-compliance-gate", {}))
+        self.assertTrue(bcp.should_fire("skill-compliance-gate", {
+            "traits": {"has_phases": {"fires": False}}
+        }))
+
+    # ---------- BP list ----------
+
+    def test_resolve_bp_paths_gate_empty(self):
+        """Empty BP list — gate's checks are hardcoded in compliance_check.py
+        (Family 1) and gate.py (Family 2 / Check 14)."""
+        paths = bcp.resolve_bp_paths(
+            "skill-compliance-gate", PATTERNS_ROOT, firing_traits=None
+        )
+        self.assertEqual(paths, [])
+
+    def test_resolve_bp_paths_gate_empty_regardless_of_traits(self):
+        with_all = bcp.resolve_bp_paths(
+            "skill-compliance-gate", PATTERNS_ROOT,
+            firing_traits=["has_phases", "invokes_skills", "has_hitl",
+                           "is_scheduled", "has_references"],
+        )
+        self.assertEqual(with_all, [])
+
+    # ---------- Pack shape (minimal schema) ----------
+
+    def test_build_pack_gate_requires_assembled_skill_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            with self.assertRaises(ValueError) as cm:
+                bcp.build_pack(
+                    spec_path=tmp / "spec.md",  # unused by gate
+                    classifier_path=tmp / "c.json",  # unused by gate
+                    sub_skill_name="skill-compliance-gate",
+                    out_dir=tmp / "phase08",
+                    patterns_root=PATTERNS_ROOT,
+                    work_dir=tmp,  # provided
+                    # assembled_skill_path missing → ValueError
+                )
+            self.assertIn("assembled_skill_path", str(cm.exception))
+
+    def test_build_pack_gate_requires_work_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            with self.assertRaises(ValueError) as cm:
+                bcp.build_pack(
+                    spec_path=tmp / "spec.md",
+                    classifier_path=tmp / "c.json",
+                    sub_skill_name="skill-compliance-gate",
+                    out_dir=tmp / "phase08",
+                    patterns_root=PATTERNS_ROOT,
+                    assembled_skill_path=tmp / "assembled",
+                )
+            self.assertIn("work_dir", str(cm.exception))
+
+    def test_build_gate_pack_writes_minimal_input_md(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            assembled = tmp / "assembled" / "fake-skill"
+            assembled.mkdir(parents=True)
+            input_md = bcp.build_gate_pack(
+                out_dir=tmp / "phase08",
+                assembled_skill_path=assembled,
+                work_dir=tmp,
+            )
+            self.assertTrue(input_md.exists())
+            text = input_md.read_text(encoding="utf-8")
+            self.assertIn("# Input pack — skill-compliance-gate", text)
+            # Gate's parser expects `- **key**: value` lines
+            self.assertIn(f"- **assembled_skill_path**: {assembled}", text)
+            self.assertIn(f"- **work_dir**: {tmp}", text)
+
+    def test_gate_pack_skips_standard_sections(self):
+        """Minimal schema — no Spec excerpt, no Classified traits, no BPs."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            input_md = bcp.build_gate_pack(
+                out_dir=tmp / "phase08",
+                assembled_skill_path=tmp / "fake",
+                work_dir=tmp,
+            )
+            text = input_md.read_text(encoding="utf-8")
+            self.assertNotIn("## Spec excerpt", text)
+            self.assertNotIn("## Classified traits", text)
+            self.assertNotIn("## BPs to enforce", text)
+            # But the standard structural sections are present
+            self.assertIn("## Task", text)
+            self.assertIn("## Output locations", text)
+
+    def test_gate_pack_parseable_by_gate_input_parser(self):
+        """End-to-end: skill-compliance-gate's parse_input_md must extract
+        the two fields the pack emits, exactly as gate.py reads them."""
+        gate_scripts = (
+            REPO_SKILL.parent / "skill-compliance-gate" / "scripts"
+        )
+        sys.path.insert(0, str(gate_scripts))
+        try:
+            import gate as gate_module  # noqa: WPS433
+        finally:
+            # Don't leave it on sys.path for other tests.
+            if str(gate_scripts) in sys.path:
+                sys.path.remove(str(gate_scripts))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            assembled = tmp / "assembled" / "fake-skill"
+            input_md = bcp.build_gate_pack(
+                out_dir=tmp / "phase08",
+                assembled_skill_path=assembled,
+                work_dir=tmp,
+            )
+            fields = gate_module.parse_input_md(input_md)
+            self.assertEqual(
+                fields.get("assembled_skill_path"), str(assembled)
+            )
+            self.assertEqual(fields.get("work_dir"), str(tmp))
+
+    # ---------- CLI integration ----------
+
+    def test_cli_gate_target_writes_pack(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            assembled = tmp / "assembled" / "fake-skill"
+            assembled.mkdir(parents=True)
+            spec = tmp / "spec.md"
+            spec.write_text("# unused", encoding="utf-8")
+            classifier = tmp / "c.json"
+            classifier.write_text("{}", encoding="utf-8")
+            out = tmp / "phase08"
+
+            result = subprocess.run(
+                [
+                    sys.executable, str(SCRIPTS / "build_context_pack.py"),
+                    str(spec), str(classifier), "skill-compliance-gate",
+                    str(out),
+                    "--assembled-skill-path", str(assembled),
+                    "--work-dir", str(tmp),
+                ],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((out / "input.md").exists())
+
+    def test_cli_gate_target_rejects_missing_assembled_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            spec = tmp / "spec.md"
+            spec.write_text("# unused", encoding="utf-8")
+            classifier = tmp / "c.json"
+            classifier.write_text("{}", encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable, str(SCRIPTS / "build_context_pack.py"),
+                    str(spec), str(classifier), "skill-compliance-gate",
+                    str(tmp / "phase08"),
+                    "--work-dir", str(tmp),
+                    # --assembled-skill-path missing
+                ],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("assembled_skill_path", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
