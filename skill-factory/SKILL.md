@@ -14,13 +14,11 @@ allowed-tools:
 The Skill Factory's driver. Given a validated `client-spec.md` and a
 company slug, orchestrates the full pipeline that produces a
 compliance-passing skill, hands-off. Sole human touchpoint (BP-026): the
-input spec. If the spec passes `/skill-spec-validator`, the downstream
-pipeline runs without interactive questions.
-
-This SKILL.md is a **thin top director** per Principle E. Every phase's
-detailed procedure lives in `phases/<N>-<name>/director.md`. Shared
-mechanics live in the cross-phase `references/` files named below. Do
-not inline phase logic here.
+input spec — once it passes `/skill-spec-validator`, the downstream
+pipeline runs without interactive questions. This SKILL.md is a **thin
+top director** per Principle E; every phase's detailed procedure lives
+in its own `phases/<N>-<name>/director.md`. Do not inline phase logic
+here.
 
 ## Invocation
 
@@ -33,122 +31,80 @@ not inline phase logic here.
 Pick a working directory under `~/Claude/skill-factory/<company>-<slug>/`.
 All phase outputs land under `<work>/phases/NN-<sub-skill>/`.
 
-The factory is 10 sequential phases. Each phase has its own director
-under `phases/<N>-<name>/director.md`. Read the phase director when
-entering that phase — do not inline its logic here.
+The factory runs 10 sequential phases. Every Step below reads its named
+`phases/<N>-<name>/director.md` and executes that procedure verbatim;
+each director owns its sub-agent spawn (per `references/spawn-subagent.md`),
+context-pack contract (per `references/invocation-contract.md`), trait
+gate (per `references/trait-gating.md`), and BLOCKER / STOP semantics
+(BP-028). Trait gates are noted inline; the listed director engages
+only when its gate fires.
 
 ### Step 1 — Enter Phase 1 (input gate, always fires)
 
-Read `phases/01-input-gate/director.md` and execute its procedure.
-Hard wall per BP-027.
+Read `phases/01-input-gate/director.md`. Hard wall per BP-027.
 
 ### Step 2 — Enter Phase 2 (trait classification, always fires)
 
-Read `phases/02-trait-classification/director.md` and execute its
-procedure. Writes `<work>/classifier.json` for downstream phases.
+Read `phases/02-trait-classification/director.md`. Writes
+`<work>/classifier.json` for downstream phases.
 
 ### Step 3 — Enter Phase 3 (frontmatter, always fires)
 
-Read `phases/03-skill-frontmatter/director.md` and execute its
-procedure. Produces frontmatter YAML.
+Read `phases/03-skill-frontmatter/director.md`.
 
 ### Step 4 — Enter Phase 4 (phase-designer, conditional on has_phases)
 
-Check `has_phases.fires` per `references/trait-gating.md` Pattern A.
-When true, read `phases/04-skill-phase-designer/director.md` and
-execute its procedure. When false, skip to Step 5.
+Read `phases/04-skill-phase-designer/director.md` when `has_phases.fires`
+(Pattern A); else skip to Step 5.
 
 ### Step 5 — Enter Phase 5 (references-scaffolder, conditional on has_references)
 
-Check `has_references.fires` per `references/trait-gating.md` Pattern A.
-When true, read `phases/05-skill-references-scaffolder/director.md`
-and execute its procedure. When false, skip to Step 6.
+Read `phases/05-skill-references-scaffolder/director.md` when
+`has_references.fires` (Pattern A); else skip to Step 6.
 
 ### Step 6 — Enter Phase 6 (cron-observability, conditional on is_scheduled)
 
-Check `is_scheduled.fires` per `references/trait-gating.md` Pattern A.
-When true, read `phases/06-skill-cron-observability/director.md` and
-execute its procedure. When false, skip to Step 7.
+Read `phases/06-skill-cron-observability/director.md` when
+`is_scheduled.fires` (Pattern A); else skip to Step 7.
 
 ### Step 7 — Enter Phase 7 (signed-handoff, AND-conditional on has_phases ∧ invokes_skills)
 
-Check the AND-predicate via the predicate-registry CLI:
-
-```bash
-python3 scripts/build_context_pack.py --should-fire skill-signed-handoff <work>/classifier.json
-```
-
-Exit 0 → read `phases/07-skill-signed-handoff/director.md` and
-execute its procedure. Exit 1 → skip to Step 8. Exit 2 → driver bug;
-STOP and report. See `phases/07-skill-signed-handoff/references/and-gating.md`
-for why this phase uses Pattern B (predicate registry) instead of
-Pattern A (inline trait read).
+Read `phases/07-skill-signed-handoff/director.md` when its predicate-
+registry CLI exits 0 (Pattern B; the `--should-fire` invocation lives
+in the phase director); else skip to Step 8.
 
 ### Step 8 — Enter Phase 8 (assemble + compliance gate, always fires)
 
-Read `phases/08-assemble-and-gate/director.md` and execute its procedure.
-This phase has no trait gate — it runs on every factory run. On clean
-PASS, continue to Step 9. On gate FAIL, the director writes a `BLOCKER:`
-line to `<work>/notes.md` and STOPs before Phase 99 per BP-028.
+Read `phases/08-assemble-and-gate/director.md`. Gate FAIL halts before
+Phase 9 per BP-028.
 
 ### Step 9 — Enter Phase 9 (materialize, always fires except for meta-skills)
 
-Read `phases/09-materialize/director.md` and execute its procedure.
-Phase 9 reads the assembled skill produced by Phase 8, detects
-meta-skill status, and (when not a meta-skill) creates or extends the
-per-client repo at `~/Projects/<company>-claude-skills/`, copies the
-skill in, symlinks it into `~/.claude/skills/`, and (when the spec
-opts in) creates a private GitHub repo via `gh`. On any BLOCKER, STOP
-before the report phase per BP-028.
+Read `phases/09-materialize/director.md`. Phase 9 short-circuits on
+`meta-skill: true` and otherwise materializes the per-client repo +
+symlink + (when the spec opts in) `gh repo create`. BLOCKER halts
+before Phase 99 per BP-028.
 
 ### Step 10 — Enter Phase 99 (report and stop)
 
-Read `phases/99-report/director.md` and execute its procedure. Print
-the per-phase summary and the work directory path.
+Read `phases/99-report/director.md`.
 
 ## References (cross-phase)
 
-Cross-phase references shared by multiple phase directors. Phase-scoped
-references live under `phases/<N>-<name>/references/`.
+Cross-phase references shared by multiple phase directors (phase-scoped refs live under `phases/<N>-<name>/references/`).
 
-- Read `references/spawn-subagent.md` for the 5-step Agent-spawn
-  mechanics used by every phase that invokes a sub-skill.
-- Read `references/trait-gating.md` for Pattern A / Pattern B / Pattern C
-  conditional-entry semantics used by every trait-gated phase.
-- Read `references/invocation-contract.md` for the BP-033 `input.md`
-  schema every sub-skill consumes.
-- Read `references/phase-spine.md` for the 6-phase architectural
-  overview (Phases 5–6 post-factory scope).
-- Read `references/trait-edge-cases.md` for the 4 classifier edge cases
-  and why each is handled the way it is.
+- Read `references/spawn-subagent.md` for 5-step Agent-spawn mechanics.
+- Read `references/trait-gating.md` for Pattern A / Pattern B / Pattern C conditional-entry semantics.
+- Read `references/invocation-contract.md` for the BP-033 `input.md` schema.
+- Read `references/phase-spine.md` for the 6-phase architectural overview.
+- Read `references/trait-edge-cases.md` for the 4 classifier edge cases.
 
 ## Scripts
 
-- **`scripts/trait_predicates.py`** — the 5-predicate classifier. CLI.
-- **`scripts/build_context_pack.py`** — Phases 3/4/5/6/7/8 pack
-  materializer. Supports `skill-frontmatter`, `skill-phase-designer`,
-  `skill-references-scaffolder`, `skill-cron-observability`,
-  `skill-signed-handoff`, and `skill-compliance-gate` as sub-skill
-  targets. Exposes `--prescaffold-references` and `--target-skill-dir`
-  for Phase 5 pre-scaffolding (Stage 9a), `--should-fire` for Phase 7
-  AND-gated predicate evaluation (Stage 9b), and
-  `--assembled-skill-path` / `--work-dir` for the Phase 8 gate's
-  minimal-pack schema (Stage 10b). CLI.
-- **`scripts/assemble_skill.py`** — Phase 8a inline assembler (Stage
-  10b). Reads per-phase outputs from `<work>/phases/NN-*/` and
-  materializes a skill directory at `<work>/assembled/<slug>/` plus
-  an `ASSEMBLY-MANIFEST.json`. Exit 0/1/2 = success / missing-input /
-  malformed-input. CLI.
-- **`scripts/materialize_skill.py`** — Phase 9 inline materializer
-  (Stage 11a). Takes the gate-passing assembled skill and installs it
-  into `~/Projects/<company>-claude-skills/` (per-client git repo) +
-  symlinks it into `~/.claude/skills/<slug>/`. When `gh` is on (the
-  default per plan v2 D6), also runs `gh repo create --private` and
-  adds `adamkingai` as collaborator. Idempotent — byte-identical
-  re-runs are no-ops; conflicting skill dirs BLOCKER (committed code
-  is sacred); `--force` replaces symlinks only. Skips entirely for
-  meta-skills (`meta-skill: true` frontmatter marker). Exit 0/1/2 =
-  success-or-skip / BLOCKER / bad-usage. CLI.
+- **`scripts/trait_predicates.py`** — 5-predicate classifier; spec/skill modes. CLI.
+- **`scripts/build_context_pack.py`** — Phases 3–8 pack materializer for 6 sub-skill targets; flags `--prescaffold-references`, `--target-skill-dir`, `--should-fire`, `--assembled-skill-path`, `--work-dir`. CLI.
+- **`scripts/assemble_skill.py`** — Phase 8a inline assembler; produces `<work>/assembled/<slug>/` + `ASSEMBLY-MANIFEST.json`. Exit 0/1/2 = success / missing-input / malformed-input. CLI.
+- **`scripts/materialize_skill.py`** — Phase 9 inline materializer; per-client git repo + symlink + opt-in `gh repo create --private`. Idempotent; skips meta-skills (`meta-skill: true`); `--force` replaces symlinks only. Exit 0/1/2 = success-or-skip / BLOCKER / bad-usage. CLI.
 
 ## Fixtures
 
