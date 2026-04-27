@@ -142,3 +142,24 @@ None
 -->
 - Do NOT modify the input file under any circumstance.
 - Do NOT auto-infer missing fields — fail fast instead.
+
+## Delivery
+<!--
+  Optional. Controls Phase 9 (materialize) behavior — the per-client
+  repo + symlink + GitHub-creation step. Single field:
+
+    Remote repo: yes | no
+
+  - `yes` (default if omitted): Phase 9 calls `gh repo create --private`
+    after materializing locally + symlinking, and adds `adamkingai` as
+    a collaborator. Use this for real client deliveries that should
+    land on GitHub for collaboration.
+  - `no`: Phase 9 stops at the local repo + symlink. No GitHub call.
+    Use this for development iteration, smoke-test runs, internal-only
+    POCs, or any spec that should never publish.
+
+  Per plan v2 D6 (FLIPPED): `gh` is the default because the steady
+  state is real client deliveries. The escape hatch is per-spec, not
+  per-invocation, so the spec carries the canonical intent.
+-->
+Remote repo: yes

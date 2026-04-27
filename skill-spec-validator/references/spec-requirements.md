@@ -96,6 +96,10 @@ These RAISE classification confidence but never cause failure. Report present-or
 - **Match pattern:** header containing `Hook` or `Hooks`
 - **Value added:** PreToolUse hooks for mode-toggle and asymmetric-write-control archetypes.
 
+### Delivery
+- **Match pattern:** header containing `Delivery`
+- **Value added:** controls Phase 9 (materialize) behavior. Single recognized field `Remote repo: yes | no`. Default (section absent OR `Remote repo` line absent OR `yes`) is `gh repo create --private` ON; `Remote repo: no` opts out for development iteration / smoke tests / internal-only POCs. The materializer's `parse_delivery_section()` reads it. Validator reports presence only — never fails. Anti-pattern entry #10 in `assets/spec-anti-patterns.md` covers misuse (conflating with notification / distribution behavior, which belongs in the walkthrough).
+
 ---
 
 ## How the validator uses this file

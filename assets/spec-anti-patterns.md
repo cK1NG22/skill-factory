@@ -215,6 +215,40 @@ The fix for each is the same: read your finished spec end-to-end before running 
 
 ---
 
+## 10. Delivery section misuse
+
+### Bad
+```md
+## Delivery
+- Email the output when ready.
+- Slack the team after each run.
+- Push to a public repo so customers can browse.
+```
+
+### Why it fails
+The `## Delivery` section is a single-purpose, factory-internal field added in Stage 11b to control Phase 9 (per-client repo + symlink + GitHub-creation) behavior. Its only recognized field is `Remote repo: yes | no`. The validator parses presence-or-absence; the materializer parses the `Remote repo` line.
+
+The bad version conflates "delivery" in the everyday sense (notify users, distribute artifacts) with the factory's narrow meaning (does Phase 9 call `gh repo create` or not). Notification, distribution, and post-run side effects belong in the **Happy-path walkthrough** as numbered steps invoking `/send-email`, `/slack-post`, etc. — they are the authored skill's *behavior*, not the factory's *materialization* policy.
+
+The materializer also hardcodes `--private` per plan v2 D11. Specs cannot opt into a public initial repo; the user flips visibility manually post-creation if they later need to publish. Writing `Public: yes` or `Visibility: public` in this section is silently ignored.
+
+### Fix
+Either omit the section entirely (default behavior is `gh` ON), or use exactly the recognized field:
+```md
+## Delivery
+Remote repo: no
+```
+
+If the *skill being authored* needs to email / slack / push as part of its runtime behavior, document that in the Happy-path walkthrough as numbered steps invoking ecosystem skills:
+```md
+## Happy-path walkthrough
+...
+6. Invoke `/send-email` with the rendered output attached, addressed to the recipient list.
+7. Append the recipients + send timestamp to `~/Claude/<skill>/sent.log`.
+```
+
+---
+
 ## What to do if you believe the validator is wrong
 
 If a validator failure feels like a false positive (the rule seems too strict for your legitimate case):

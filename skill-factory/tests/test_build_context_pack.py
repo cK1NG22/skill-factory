@@ -1198,5 +1198,93 @@ class TestStage10bWiring(unittest.TestCase):
             self.assertIn("assembled_skill_path", result.stderr)
 
 
+class TestStage11bPhase9Integration(unittest.TestCase):
+    """Stage 11b — Phase 9 director + driver SKILL.md wiring.
+
+    `materialize_skill.py` is an inline factory script (plan v2 D1), not
+    a sub-skill, so it does NOT register in the build_context_pack.py
+    Tier-1 dicts. These tests verify the source-tree shape grew the new
+    phase dir + driver Procedure step cleanly:
+
+      - Phase dir + 2 reference files exist at expected paths.
+      - Driver SKILL.md has exactly 10 sequential Procedure steps.
+      - Step 9 wires through to phases/09-materialize/director.md.
+      - Step 10 (renumbered from old Step 9) wires through to phases/99-report/.
+      - The new phase director phase-lints clean (catches imperative-opener
+        and step-numbering regressions before they reach Phase 8's gate).
+    """
+
+    DRIVER_SKILL_MD = REPO_SKILL / "SKILL.md"
+    PHASE_9_DIR = REPO_SKILL / "phases" / "09-materialize"
+
+    def test_phase_9_director_file_exists(self):
+        self.assertTrue(
+            (self.PHASE_9_DIR / "director.md").is_file(),
+            "Phase 9 director must exist at phases/09-materialize/director.md",
+        )
+
+    def test_phase_9_has_both_phase_scoped_references(self):
+        refs = self.PHASE_9_DIR / "references"
+        self.assertTrue((refs / "materialization-contract.md").is_file(),
+                        "materialization-contract.md must exist (cited by "
+                        "director Steps A/C/D)")
+        self.assertTrue((refs / "gh-cli-invocation.md").is_file(),
+                        "gh-cli-invocation.md must exist (cited by "
+                        "director Step B)")
+
+    def test_driver_skill_md_has_ten_sequential_steps(self):
+        text = self.DRIVER_SKILL_MD.read_text(encoding="utf-8")
+        # Count "### Step N — " headings inside the Procedure section.
+        # Stage 11b grew the Procedure 9 → 10 steps per plan v2 D8.
+        import re
+        steps = re.findall(r"^###\s+Step\s+(\d+)\s+—", text, re.MULTILINE)
+        self.assertEqual(
+            [int(s) for s in steps], list(range(1, 11)),
+            "Driver SKILL.md must have exactly 10 sequential Procedure "
+            f"steps (Step 1 through Step 10); got: {steps}",
+        )
+
+    def test_driver_step_9_references_phase_9_director(self):
+        text = self.DRIVER_SKILL_MD.read_text(encoding="utf-8")
+        # Step 9 is the new materialize step. Must point at the phase 9
+        # director path so the driver's runtime read happens correctly.
+        import re
+        m = re.search(r"### Step 9 .*?(?=### Step 10|## )", text,
+                      re.DOTALL)
+        self.assertIsNotNone(m, "Driver SKILL.md is missing Step 9")
+        self.assertIn("phases/09-materialize/director.md", m.group(0),
+                      "Step 9 must direct the runtime to read "
+                      "phases/09-materialize/director.md")
+
+    def test_references_lint_strict_walks_ten_phase_directors(self):
+        """references_lint --strict-two-level must recognize the new
+        Phase 9 director when walking the driver tree. The plan-specified
+        canary for Stage 11b: if the lint walker doesn't see the 10th
+        director, the strict citation check would silently skip it and
+        let cross-phase reference rot land unnoticed."""
+        ref_lint = (REPO_SKILL.parent / "skill-references-scaffolder"
+                    / "scripts" / "references_lint.py")
+        if not ref_lint.is_file():
+            self.skipTest("references_lint.py not present in this checkout")
+        result = subprocess.run(
+            [sys.executable, str(ref_lint),
+             str(REPO_SKILL), "--strict-two-level"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"references_lint failed on driver tree:\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}",
+        )
+        # Walk should report exactly 10 phase directors (was 9 before
+        # Stage 11b). Look for the info line; format set in
+        # skill-references-scaffolder Stage 9.0.
+        self.assertIn(
+            "10 phase director(s) inspected", result.stdout,
+            f"Expected '10 phase director(s) inspected' in lint stdout, "
+            f"got: {result.stdout}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

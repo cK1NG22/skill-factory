@@ -33,7 +33,7 @@ not inline phase logic here.
 Pick a working directory under `~/Claude/skill-factory/<company>-<slug>/`.
 All phase outputs land under `<work>/phases/NN-<sub-skill>/`.
 
-The factory is 9 sequential phases. Each phase has its own director
+The factory is 10 sequential phases. Each phase has its own director
 under `phases/<N>-<name>/director.md`. Read the phase director when
 entering that phase — do not inline its logic here.
 
@@ -91,7 +91,17 @@ This phase has no trait gate — it runs on every factory run. On clean
 PASS, continue to Step 9. On gate FAIL, the director writes a `BLOCKER:`
 line to `<work>/notes.md` and STOPs before Phase 99 per BP-028.
 
-### Step 9 — Enter Phase 99 (report and stop)
+### Step 9 — Enter Phase 9 (materialize, always fires except for meta-skills)
+
+Read `phases/09-materialize/director.md` and execute its procedure.
+Phase 9 reads the assembled skill produced by Phase 8, detects
+meta-skill status, and (when not a meta-skill) creates or extends the
+per-client repo at `~/Projects/<company>-claude-skills/`, copies the
+skill in, symlinks it into `~/.claude/skills/`, and (when the spec
+opts in) creates a private GitHub repo via `gh`. On any BLOCKER, STOP
+before the report phase per BP-028.
+
+### Step 10 — Enter Phase 99 (report and stop)
 
 Read `phases/99-report/director.md` and execute its procedure. Print
 the per-phase summary and the work directory path.
@@ -129,6 +139,16 @@ references live under `phases/<N>-<name>/references/`.
   materializes a skill directory at `<work>/assembled/<slug>/` plus
   an `ASSEMBLY-MANIFEST.json`. Exit 0/1/2 = success / missing-input /
   malformed-input. CLI.
+- **`scripts/materialize_skill.py`** — Phase 9 inline materializer
+  (Stage 11a). Takes the gate-passing assembled skill and installs it
+  into `~/Projects/<company>-claude-skills/` (per-client git repo) +
+  symlinks it into `~/.claude/skills/<slug>/`. When `gh` is on (the
+  default per plan v2 D6), also runs `gh repo create --private` and
+  adds `adamkingai` as collaborator. Idempotent — byte-identical
+  re-runs are no-ops; conflicting skill dirs BLOCKER (committed code
+  is sacred); `--force` replaces symlinks only. Skips entirely for
+  meta-skills (`meta-skill: true` frontmatter marker). Exit 0/1/2 =
+  success-or-skip / BLOCKER / bad-usage. CLI.
 
 ## Fixtures
 
