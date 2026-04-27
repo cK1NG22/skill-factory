@@ -261,5 +261,150 @@ class SummaryTableTests(unittest.TestCase):
             self.assertRegex(body, r"\|\s*12\s*\|\s*0\s*\|\s*0\s*\|\s*1\s*\|")
 
 
+class MetaSkillExceptionTests(unittest.TestCase):
+    """Stage 10c: BP-003 meta-skill exception. Skills with `meta-skill: true`
+    in frontmatter skip Check 14. CLI `--meta-skill` flag forces the skip
+    regardless of frontmatter (used for testing client fixtures + bonus
+    sweeps). The default (no marker, no flag) runs Check 14 normally.
+    """
+
+    def test_is_meta_skill_returns_true_on_marker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            skill = Path(tmp) / "fake"
+            skill.mkdir()
+            (skill / "SKILL.md").write_text(
+                "---\n"
+                "meta-skill: true\n"
+                "name: fake-meta\n"
+                "description: A fake meta-skill.\n"
+                "---\n\n# fake-meta\n",
+                encoding="utf-8",
+            )
+            self.assertTrue(gate.is_meta_skill(skill))
+
+    def test_is_meta_skill_returns_false_without_marker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            skill = Path(tmp) / "fake"
+            skill.mkdir()
+            (skill / "SKILL.md").write_text(
+                "---\nname: fake-client\ndescription: A client.\n---\n",
+                encoding="utf-8",
+            )
+            self.assertFalse(gate.is_meta_skill(skill))
+
+    def test_is_meta_skill_returns_false_on_meta_skill_false(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            skill = Path(tmp) / "fake"
+            skill.mkdir()
+            (skill / "SKILL.md").write_text(
+                "---\nmeta-skill: false\nname: fake\ndescription: x.\n---\n",
+                encoding="utf-8",
+            )
+            self.assertFalse(gate.is_meta_skill(skill))
+
+    def test_is_meta_skill_handles_missing_skill_md(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(gate.is_meta_skill(Path(tmp)))
+
+    def test_is_meta_skill_handles_no_frontmatter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            skill = Path(tmp) / "fake"
+            skill.mkdir()
+            (skill / "SKILL.md").write_text(
+                "# fake\n\nNo frontmatter here.\n", encoding="utf-8"
+            )
+            self.assertFalse(gate.is_meta_skill(skill))
+
+    def test_evaluate_skips_check_14_when_meta_skill_in_frontmatter(self):
+        """Loading the failing-meta-cite fixture but adding the marker."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            # Copy fixture to a temp dir so we can mutate frontmatter
+            src = FIXTURES / "failing-meta-cite"
+            dst = tmp / "skill"
+            dst.mkdir()
+            (dst / "SKILL.md").write_text(
+                "---\n"
+                "meta-skill: true\n"
+                "name: fake-meta-cite\n"
+                "description: A fake meta-skill that legitimately cites bp-028.\n"
+                "---\n\n# fake-meta-cite\n",
+                encoding="utf-8",
+            )
+            (dst / "references").mkdir()
+            (dst / "references" / "bad.md").write_text(
+                "See bp-028 and patterns/meta/bp-028.\n",
+                encoding="utf-8",
+            )
+            verdict = gate.evaluate(dst)
+            self.assertTrue(verdict.get("meta_skill"))
+            self.assertEqual(verdict["check_14_hits"], [])
+            # Check 14 skipped → no Check-14-driven failure.
+            self.assertEqual(verdict["verdict"], "pass")
+
+    def test_evaluate_explicit_meta_skill_true_overrides_frontmatter(self):
+        """The `meta_skill=True` arg forces meta-skill mode even when the
+        frontmatter has no marker. Used by `--meta-skill` CLI flag."""
+        verdict = gate.evaluate(
+            FIXTURES / "failing-meta-cite", meta_skill=True
+        )
+        self.assertTrue(verdict.get("meta_skill"))
+        self.assertEqual(verdict["check_14_hits"], [])
+        self.assertEqual(verdict["verdict"], "pass")
+
+    def test_evaluate_explicit_meta_skill_false_overrides_frontmatter(self):
+        """The `meta_skill=False` arg forces client-skill mode (run Check 14)
+        even when the frontmatter says `meta-skill: true`."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            dst = tmp / "skill"
+            dst.mkdir()
+            # Marker says meta-skill, but caller forces False.
+            (dst / "SKILL.md").write_text(
+                "---\n"
+                "meta-skill: true\n"
+                "name: fake-meta\n"
+                "description: x.\n"
+                "---\n",
+                encoding="utf-8",
+            )
+            (dst / "references").mkdir()
+            (dst / "references" / "bad.md").write_text(
+                "See bp-028.\n", encoding="utf-8"
+            )
+            verdict = gate.evaluate(dst, meta_skill=False)
+            self.assertFalse(verdict.get("meta_skill"))
+            self.assertGreaterEqual(len(verdict["check_14_hits"]), 1)
+            self.assertEqual(verdict["verdict"], "fail")
+
+    def test_cli_meta_skill_flag_makes_meta_cite_fixture_pass(self):
+        """End-to-end CLI: --meta-skill flag flips fixture from FAIL to PASS."""
+        # Without flag → fail
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS / "gate.py"),
+             "--skill", str(FIXTURES / "failing-meta-cite")],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 1)
+        # With flag → pass
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS / "gate.py"),
+             "--skill", str(FIXTURES / "failing-meta-cite"),
+             "--meta-skill"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        parsed = json.loads(result.stdout)
+        self.assertEqual(parsed["verdict"], "pass")
+        self.assertTrue(parsed["meta_skill"])
+
+    def test_verdict_includes_meta_skill_field(self):
+        """The verdict dict always carries `meta_skill` for auditability —
+        even on PASS where Check 14 hits would have been zero anyway."""
+        verdict = gate.evaluate(FIXTURES / "passing")
+        self.assertIn("meta_skill", verdict)
+        self.assertIsInstance(verdict["meta_skill"], bool)
+
+
 if __name__ == "__main__":
     unittest.main()

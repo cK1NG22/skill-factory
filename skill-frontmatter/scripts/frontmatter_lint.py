@@ -43,6 +43,11 @@ _KNOWN_TOOLS = {
 _ALLOWED_TOP_KEYS = {
     "name", "description", "allowed-tools",
     "argument-hint", "model",
+    # Stage 10c: BP-003 meta-skill exception. Set on factory-internal
+    # sub-skills only; client skills should NOT carry this key. The
+    # compliance gate's Check 14 (meta-BP citation scan) skips skills
+    # whose frontmatter has `meta-skill: true`.
+    "meta-skill",
 }
 
 # --- Rule 3 — trigger phrases: quoted substrings containing a space ---

@@ -1,4 +1,5 @@
 ---
+meta-skill: true
 name: skill-compliance-gate
 description: Factory-driven, hands-off compliance gate over a fully assembled skill directory. Runs the 13-check skill-compliance audit via subprocess and adds Check 14 (no `patterns/meta/bp-*` citations in a client skill). Use when "run the compliance gate", "gate the assembled skill", "check 14 meta citation scan", "skill-compliance-gate <path>", or when the skill-factory driver invokes this in Phase 8 as the universal closure step. Do NOT use for interactive audits (use `/skill-compliance` instead); this gate is silent, binary, and BLOCKERs on BP-028.
 argument-hint: "<phase-input-md-path | --skill assembled-dir>"

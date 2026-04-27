@@ -1,4 +1,5 @@
 ---
+meta-skill: true
 name: skill-references-scaffolder
 description: Scaffold a factory-authored skill's references/ folder and verify SKILL.md cites each reference in canonical form. Use when "scaffold references", "wire up references", "check reference citations", "validate folder structure", "parallel folders check", "skill-references-scaffolder <workspace>", or when the skill-factory driver invokes this in Phase 4 because has_references or has_phases fires. Do NOT use for writing the SKILL.md frontmatter (use skill-frontmatter) or for drafting the Procedure section (use skill-phase-designer).
 argument-hint: "<skill-dir-or-input-md-path>"

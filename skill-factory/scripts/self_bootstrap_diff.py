@@ -230,6 +230,67 @@ def _count_step_headings(text: str) -> int:
     return len(_STEP_HEADING.findall(text))
 
 
+def gate_verdicts(scratch: Path, committed: Path) -> dict:
+    """Stage 10c: compare gate verdicts between the regenerated assembled
+    skill (at <scratch>/assembled/<slug>/) and the committed factory.
+
+    Returns a dict with three fields:
+      regenerated  — verdict for the assembled skill, or "n/a" if the
+                     scratch dir doesn't have an assembled subdir (i.e.
+                     the self-bootstrap pre-dates Stage 10b's Phase 8).
+      committed    — verdict for the committed skill at `committed`.
+      match        — True iff both verdicts are "pass". A regenerated
+                     "n/a" plus committed "pass" still counts as match=True
+                     for backward compatibility with pre-10b runs.
+
+    Both gate runs use the meta-skill auto-detect path (no --meta-skill
+    flag) so the marker on the SKILL.md is what gates Check 14.
+    """
+    repo_root = _detect_repo_root(committed)
+    gate_script = repo_root / "skill-compliance-gate" / "scripts" / "gate.py"
+    if not gate_script.is_file():
+        return {"regenerated": "n/a", "committed": "n/a",
+                "match": False, "reason": "gate.py not found"}
+
+    def _run_gate(skill_dir: Path) -> str:
+        try:
+            proc = subprocess.run(
+                ["python3", str(gate_script), "--skill", str(skill_dir)],
+                capture_output=True, text=True, check=False, timeout=30,
+            )
+        except subprocess.TimeoutExpired:
+            return "timeout"
+        if not proc.stdout.strip():
+            return f"no-output (rc={proc.returncode})"
+        try:
+            return json.loads(proc.stdout).get("verdict", "unknown")
+        except json.JSONDecodeError:
+            return "unparseable"
+
+    # Regenerated: look for scratch/assembled/<slug>/ — the unique subdir
+    assembled_root = scratch / "assembled"
+    regenerated = "n/a"
+    if assembled_root.is_dir():
+        children = [c for c in assembled_root.iterdir() if c.is_dir()]
+        if len(children) == 1:
+            regenerated = _run_gate(children[0])
+        elif len(children) > 1:
+            regenerated = f"ambiguous ({len(children)} assembled dirs)"
+
+    committed_v = _run_gate(committed)
+
+    if regenerated == "n/a":
+        match = committed_v == "pass"
+    else:
+        match = regenerated == "pass" and committed_v == "pass"
+
+    return {
+        "regenerated": regenerated,
+        "committed": committed_v,
+        "match": match,
+    }
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 3:
         print("usage: self_bootstrap_diff.py <scratch-dir> <committed-skill-dir>",
@@ -249,12 +310,16 @@ def main(argv: list[str]) -> int:
     fired = detect_fired_phases(scratch)
     artifacts = [check_artifact(scratch, p) for p in fired if p in _LINT_COMMANDS]
     sections = section_match(scratch, committed)
+    gates = gate_verdicts(scratch, committed)
 
-    # Verdict logic
+    # Stage 10c: expected fired phases for the self-bootstrap fixture.
+    # Phase 8 (08-assemble-and-gate) is always-fires post-Stage-10b but
+    # we tolerate its absence for backward compatibility with pre-10b runs.
     expected_phases_3 = {"03-skill-frontmatter", "04-skill-phase-designer", "05-skill-references-scaffolder"}
+    expected_phase_8 = "08-assemble-and-gate"
     fired_set = set(fired)
     missing = sorted(expected_phases_3 - fired_set)
-    extra = sorted(fired_set - expected_phases_3)
+    extra = sorted(fired_set - expected_phases_3 - {expected_phase_8})
     all_lints_pass = all(
         isinstance(a.get("lint"), dict) and a["lint"].get("passed") is True
         for a in artifacts
@@ -264,16 +329,22 @@ def main(argv: list[str]) -> int:
         verdict = "divergence"
     elif extra:
         verdict = "divergence"  # extra phases fired (e.g., is_scheduled leaked)
+    elif not gates.get("match"):
+        # Stage 10c: gate-verdict-match invariant. Both runs must PASS for
+        # a clean self-bootstrap. Pre-10b runs (regenerated="n/a") fall
+        # through cleanly when committed is "pass".
+        verdict = "divergence"
     else:
         verdict = "pass"
 
     report = {
         "fired_phases": fired,
-        "expected_phases": sorted(expected_phases_3),
+        "expected_phases": sorted(expected_phases_3 | {expected_phase_8}),
         "missing_phases": missing,
         "extra_phases": extra,
         "artifacts": artifacts,
         "section_match": sections,
+        "gate_verdicts": gates,
         "verdict": verdict,
     }
     print(json.dumps(report, indent=2))

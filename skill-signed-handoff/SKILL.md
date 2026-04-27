@@ -1,4 +1,5 @@
 ---
+meta-skill: true
 name: skill-signed-handoff
 description: Generate a signed-handoff signature script for a factory-authored pipeline skill whose traits fire 'has_phases' AND 'invokes_skills'. Use when "generate signature script", "sign the handoff", "wire up signed handoff", "stamp the deck_signature", "emit sha256 signature script", "skill-signed-handoff <workspace>", or when the skill-factory driver invokes this in Phase 4 because both has_phases and invokes_skills fire. Do NOT use for single-skill signatures, auth tokens, or cryptographic key exchange — this is an integrity check over named fields within one agent session (BP-024).
 argument-hint: "<phases-dir-or-input-md-path>"

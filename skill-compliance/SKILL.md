@@ -1,4 +1,5 @@
 ---
+meta-skill: true
 name: skill-compliance
 description: >
   Audit skills against the compliance checklist — frontmatter validation,

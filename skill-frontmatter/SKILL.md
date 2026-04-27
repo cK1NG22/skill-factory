@@ -1,4 +1,5 @@
 ---
+meta-skill: true
 name: skill-frontmatter
 description: Generate compliant YAML frontmatter for a factory-authored skill from a validated spec. Use when "generate frontmatter", "write the frontmatter block", "lint frontmatter", "check this frontmatter", "skill-frontmatter <workspace>", or when the skill-factory driver invokes this in Phase 4. Do NOT use for editing SKILL.md body content — this skill writes ONLY the YAML frontmatter block between the opening and closing `---` lines.
 argument-hint: "<phases-dir-or-input-md-path>"

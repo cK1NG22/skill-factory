@@ -14,6 +14,11 @@ ALLOWED_KEYS = {
     "name", "description", "license", "allowed-tools", "metadata",
     "compatibility", "model", "context", "user-invocable",
     "disable-model-invocation", "argument-hint",
+    # Stage 10c: BP-003 meta-skill exception. `meta-skill: true` marks a
+    # factory-internal sub-skill (the 7 `skill-*` artifacts) so the
+    # compliance gate's Check 14 (meta-BP citation scan) can skip it.
+    # The marker is rare on client skills — those should NOT carry it.
+    "meta-skill",
 }
 GSTACK_KEYS = {"preamble-tier", "version", "benefits-from"}
 TRIGGER_PATTERNS = re.compile(

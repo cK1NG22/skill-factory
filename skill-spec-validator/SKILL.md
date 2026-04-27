@@ -1,4 +1,5 @@
 ---
+meta-skill: true
 name: skill-spec-validator
 description: Validate a client-spec.md against the Skill Factory's input quality contract before the factory authors a skill from it. Either green-lights the spec or returns a surgical gap-report with specific fix instructions for each missing or ambiguous section. Use when "validate spec", "check the client spec", "spec check", "gate my spec", "will this spec work", "is my spec complete", "spec-validator", or any time a client-spec.md is about to be fed to /skill-factory. Do NOT use for generic document review — this checks ONE specific contract (the skill-factory spec schema).
 argument-hint: "<path-to-client-spec.md>"

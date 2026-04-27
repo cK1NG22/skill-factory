@@ -1,4 +1,5 @@
 ---
+meta-skill: true
 name: skill-phase-designer
 description: Design a SKILL.md Procedure section for a phased skill from a validated spec. Use when "design the procedure", "lay out the phases", "generate procedure steps", "draft the walkthrough steps", "skill-phase-designer <workspace>", or when the skill-factory driver invokes this in Phase 4 because has_phases fires. Do NOT use for writing the SKILL.md frontmatter (use skill-frontmatter) or for wiring references (use skill-references-scaffolder).
 argument-hint: "<phases-dir-or-input-md-path>"

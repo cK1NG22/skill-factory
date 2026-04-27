@@ -1,4 +1,5 @@
 ---
+meta-skill: true
 name: skill-cron-observability
 description: Instrument a scheduled/cron skill with the BP-022 last-run/success/artifact contract and lint an existing cron skill's scripts to verify compliance. Use when "instrument this cron skill", "add cron observability", "generate cron last-run snippet", "lint cron observability", "verify cron skill writes latest.json", "skill-cron-observability <workspace>", or when the skill-factory driver invokes this in Phase 4 because is_scheduled fires. Do NOT use for non-scheduled skills, for writing the SKILL.md frontmatter (use skill-frontmatter), or for designing the Procedure steps (use skill-phase-designer).
 argument-hint: "<phases-dir-or-input-md-path>"

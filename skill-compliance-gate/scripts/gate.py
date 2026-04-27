@@ -125,6 +125,36 @@ def check_14_meta_citations(skill_path: Path) -> list[dict]:
     return hits
 
 
+def is_meta_skill(skill_path: Path) -> bool:
+    """Stage 10c: detect the BP-003 meta-skill exception via frontmatter.
+
+    Factory-internal sub-skills carry a `meta-skill: true` frontmatter line.
+    These skills legitimately cite factory-internal meta-BPs (BP-028,
+    BP-033, etc.) because those govern factory-internal behavior — Check 14
+    must NOT flag those citations as violations.
+
+    Returns False on missing SKILL.md, missing frontmatter, or any other
+    error. The default behavior (no marker) is "client skill, run Check 14
+    normally."
+    """
+    skill_md = skill_path / "SKILL.md"
+    if not skill_md.is_file():
+        return False
+    try:
+        text = skill_md.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    # Frontmatter is the leading `---`...`---` block.
+    if not text.startswith("---"):
+        return False
+    end = text.find("\n---", 3)
+    if end == -1:
+        return False
+    frontmatter = text[3:end]
+    return bool(re.search(r"^\s*meta-skill\s*:\s*true\s*$", frontmatter,
+                          re.MULTILINE | re.IGNORECASE))
+
+
 def required_fails(checker_json: dict) -> list[dict]:
     """Extract required-severity FAILs from the checker's JSON."""
     fails: list[dict] = []
@@ -139,14 +169,21 @@ def required_fails(checker_json: dict) -> list[dict]:
     return fails
 
 
-def evaluate(skill_path: Path) -> dict:
-    """Run the gate: checker core + Check 14. Returns the verdict dict."""
+def evaluate(skill_path: Path, meta_skill: bool | None = None) -> dict:
+    """Run the gate: checker core + Check 14 (skipped for meta-skills).
+
+    `meta_skill` overrides frontmatter auto-detection. None = auto-detect
+    via `is_meta_skill`. True = force meta-skill mode (skip Check 14).
+    False = force client-skill mode (run Check 14 even if frontmatter says
+    otherwise).
+    """
     if not skill_path.is_dir():
         return {
             "verdict": "fail",
             "blocker": f"assembled skill not found at {skill_path}",
             "checker_fails": [],
             "check_14_hits": [],
+            "meta_skill": False,
         }
     if not COMPLIANCE_CHECK_PATH.exists():
         return {
@@ -154,6 +191,7 @@ def evaluate(skill_path: Path) -> dict:
             "blocker": f"skill-compliance not installed at {COMPLIANCE_CHECK_PATH}",
             "checker_fails": [],
             "check_14_hits": [],
+            "meta_skill": False,
         }
     try:
         checker_json = run_checker(skill_path)
@@ -163,9 +201,18 @@ def evaluate(skill_path: Path) -> dict:
             "blocker": str(exc),
             "checker_fails": [],
             "check_14_hits": [],
+            "meta_skill": False,
         }
     checker_fails = required_fails(checker_json)
-    hits = check_14_meta_citations(skill_path)
+
+    # Stage 10c: BP-003 meta-skill exception — Check 14 is for client skills.
+    # Meta-skills (the 7 factory-internal `skill-*` sub-skills + the driver)
+    # legitimately cite factory-internal meta-BPs.
+    if meta_skill is None:
+        meta = is_meta_skill(skill_path)
+    else:
+        meta = bool(meta_skill)
+    hits: list[dict] = [] if meta else check_14_meta_citations(skill_path)
 
     if checker_fails or hits:
         parts = []
@@ -186,6 +233,7 @@ def evaluate(skill_path: Path) -> dict:
             "checker_fails": checker_fails,
             "check_14_hits": hits,
             "checker_summary": summarize(checker_json),
+            "meta_skill": meta,
         }
     return {
         "verdict": "pass",
@@ -193,6 +241,7 @@ def evaluate(skill_path: Path) -> dict:
         "checker_fails": [],
         "check_14_hits": [],
         "checker_summary": summarize(checker_json),
+        "meta_skill": meta,
     }
 
 
@@ -238,7 +287,7 @@ def write_fail_notes(phase_dir: Path, verdict: dict) -> None:
     (phase_dir / "notes.md").write_text(line + "\n", encoding="utf-8")
 
 
-def main_driver(input_path: Path) -> int:
+def main_driver(input_path: Path, meta_skill: bool | None = None) -> int:
     """--input mode. Writes to phase dir; returns exit code."""
     phase_dir = input_path.parent
     fields = parse_input_md(input_path)
@@ -256,7 +305,7 @@ def main_driver(input_path: Path) -> int:
         })
         return 1
     skill_path = Path(assembled).expanduser()
-    verdict = evaluate(skill_path)
+    verdict = evaluate(skill_path, meta_skill=meta_skill)
     if verdict["verdict"] == "pass":
         write_pass_output(phase_dir, verdict, skill_path)
         return 0
@@ -264,9 +313,10 @@ def main_driver(input_path: Path) -> int:
     return 1
 
 
-def main_standalone(skill_path: Path) -> int:
+def main_standalone(skill_path: Path,
+                    meta_skill: bool | None = None) -> int:
     """--skill mode. Prints JSON to stdout; returns exit code."""
-    verdict = evaluate(skill_path)
+    verdict = evaluate(skill_path, meta_skill=meta_skill)
     print(json.dumps(verdict, indent=2, default=str))
     return 0 if verdict["verdict"] == "pass" else 1
 
@@ -276,10 +326,18 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--input", type=Path, help="driver-materialized input.md path")
     mode.add_argument("--skill", type=Path, help="standalone: assembled skill dir")
+    parser.add_argument(
+        "--meta-skill", action="store_true",
+        help="Force meta-skill mode: skip Check 14. Auto-detected via "
+             "frontmatter `meta-skill: true` when omitted (BP-003 "
+             "meta-skill exception, Stage 10c).",
+    )
     args = parser.parse_args(argv)
+    # `None` = auto-detect; only force True when the user explicitly opts in.
+    meta_override: bool | None = True if args.meta_skill else None
     if args.input:
-        return main_driver(args.input)
-    return main_standalone(args.skill)
+        return main_driver(args.input, meta_skill=meta_override)
+    return main_standalone(args.skill, meta_skill=meta_override)
 
 
 if __name__ == "__main__":
