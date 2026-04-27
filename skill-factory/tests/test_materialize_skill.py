@@ -503,5 +503,125 @@ class TestCli(unittest.TestCase):
         self.assertEqual(rc, 2)
 
 
+# --------------------------------------------------------------------------
+# TestStage11cE2EIntegration — 2 end-to-end tests (Stage 11c).
+#
+# Exercise the full Phase 8 → Phase 9 chain on a tmp-isolated filesystem.
+# These tests prove the install loop works without touching the user's
+# real ~/Projects/ or ~/.claude/skills/ — the same architectural guarantee
+# the Stage 11c live run produced (commits 1dde5a2 + this stage), but
+# now codified as a regression check the test suite enforces forever.
+# --------------------------------------------------------------------------
+
+class TestStage11cE2EIntegration(_MaterializeBase):
+    """Phase 8 (gate) + Phase 9 (materialize) end-to-end on tmpfs."""
+
+    GATE = (REPO_SKILL.parent / "skill-compliance-gate"
+            / "scripts" / "gate.py")
+
+    def test_gate_pass_then_materialize_installs_to_real_paths(self):
+        """Stage 11c proof: assembled fixture passes the gate, then
+        materialize installs into the (tmp) projects/skills paths and
+        the symlink resolves to a directory containing SKILL.md.
+
+        This is the canary for "the factory delivers a working skill" —
+        if it fails, either the gate's contract drifted from the
+        assembled-tree shape, or materialize's install path is broken,
+        or the symlink convention changed."""
+        # Phase 8b: gate the fixture.
+        gate_result = subprocess.run(
+            [sys.executable, str(self.GATE),
+             "--skill", str(FIXTURES / "assembled-acme-board-memo")],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(gate_result.returncode, 0,
+                         f"gate failed: {gate_result.stdout}")
+        gate_verdict = json.loads(gate_result.stdout)
+        self.assertEqual(gate_verdict["verdict"], "pass")
+        self.assertEqual(gate_verdict["blocker"], None)
+
+        # Phase 9: materialize.
+        result = self._materialize("assembled-acme-board-memo", "acme")
+        self.assertIsNone(result.blocker)
+        self.assertTrue(result.installed)
+        self.assertIsNone(result.skipped)
+
+        # Symlink resolves to a directory containing SKILL.md.
+        sym = self.skills_registry / "acme-board-memo"
+        self.assertTrue(sym.is_symlink())
+        target = Path(os.readlink(sym))
+        self.assertTrue((target / "SKILL.md").is_file(),
+                        "symlink target must contain SKILL.md — Claude "
+                        "Code reads frontmatter from this path to "
+                        "decide trigger activation")
+
+        # Per-client repo has the expected initial + skill-add commit.
+        repo = self.projects_root / "acme-claude-skills"
+        log = subprocess.run(
+            ["git", "log", "--format=%s"],
+            cwd=repo, capture_output=True, text=True, check=True,
+        )
+        self.assertEqual(
+            log.stdout.strip().split("\n"),
+            ["Add/update skill: acme-board-memo",
+             "Initial commit: acme Claude skills repo"],
+        )
+
+    def test_full_chain_idempotent_re_run_is_no_op(self):
+        """Stage 11c proof: re-running the factory chain produces zero
+        change — gate still PASS, materialize reports installed=False,
+        no new git commits, no symlink-mtime drift.
+
+        Catches the regression where someone "fixes" idempotency by
+        always re-copying / always re-committing, which would silently
+        churn per-client repos on every factory run."""
+        # First chain run.
+        first = self._materialize("assembled-acme-board-memo", "acme")
+        self.assertTrue(first.installed)
+        repo = self.projects_root / "acme-claude-skills"
+        commits_before = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD"],
+            cwd=repo, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        sym_mtime_before = (
+            self.skills_registry / "acme-board-memo"
+        ).lstat().st_mtime
+
+        # Re-gate (must still pass).
+        gate_result = subprocess.run(
+            [sys.executable, str(self.GATE),
+             "--skill", str(FIXTURES / "assembled-acme-board-memo")],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(gate_result.returncode, 0)
+
+        # Re-materialize (must be no-op).
+        second = self._materialize("assembled-acme-board-memo", "acme")
+        self.assertFalse(second.installed,
+                         "re-run on byte-identical input must report "
+                         "installed=False")
+        self.assertIsNone(second.blocker)
+        commits_after = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD"],
+            cwd=repo, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        sym_mtime_after = (
+            self.skills_registry / "acme-board-memo"
+        ).lstat().st_mtime
+        self.assertEqual(commits_before, commits_after,
+                         "no-op re-run must not produce a new commit")
+        self.assertEqual(sym_mtime_before, sym_mtime_after,
+                         "no-op re-run must not touch the symlink")
+        # Notes from the no-op run mention "reused" / "already".
+        self.assertTrue(
+            any("reused existing" in n for n in second.notes),
+            f"expected 'reused existing' note; got {second.notes}",
+        )
+        self.assertTrue(
+            any("already installed" in n for n in second.notes),
+            f"expected 'already installed' note; got {second.notes}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

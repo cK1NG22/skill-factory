@@ -75,3 +75,6 @@ A `.docx` file at `~/Claude/acme-board-memo/<input-stem>.docx`. The document con
 - Do NOT include content in the output that is not present in the source markdown. No auto-summarization. No filler prose. No "AI-generated" additions.
 - Do NOT modify the input markdown file under any circumstance.
 - Do NOT ship a document without the CONFIDENTIAL footer. The footer is a hard requirement even when the input appears innocuous — the caller relies on it for downstream handling.
+
+## Delivery
+Remote repo: no
