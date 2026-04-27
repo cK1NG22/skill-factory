@@ -1,0 +1,8 @@
+{
+  "firing_traits": [],
+  "from_phases": {
+    "03-skill-frontmatter": ["output.yaml"]
+  },
+  "skill_md": "SKILL.md",
+  "slug": "skill-factory-meta-fixture"
+}

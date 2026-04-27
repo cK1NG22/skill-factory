@@ -1,0 +1,9 @@
+{
+  "firing_traits": ["has_phases"],
+  "from_phases": {
+    "03-skill-frontmatter": ["output.yaml"],
+    "04-skill-phase-designer": ["output.md"]
+  },
+  "skill_md": "SKILL.md",
+  "slug": "acme-board-memo"
+}
