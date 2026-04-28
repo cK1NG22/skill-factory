@@ -58,6 +58,11 @@ python3 scripts/build_context_pack.py \
 
 Exit 0 → enter phase. Exit 1 → skip.
 
+Pattern B is the canonical implementation of BP-036 (predicate registry
+for compound sub-skill triggers) — the registry is `_SUB_SKILL_TRIGGER_PREDICATE`
+in `scripts/build_context_pack.py`; see `patterns/meta/bp-036-predicate-registry.md`
+for when to choose Pattern B over Pattern A.
+
 ### Pattern C — no gate (always fires)
 
 Phases 1, 2, 3, and 99 always fire. No conditional entry; their directors

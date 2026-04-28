@@ -69,6 +69,12 @@ two traits, like `skill-signed-handoff` which fires only when
 always, phase-designer on `has_phases`, refs on `has_references`, cron on
 `is_scheduled`) skip Tier 3 — their gates already live in the driver.
 
+This registry is the canonical implementation site for BP-036
+(predicate registry for compound sub-skill triggers). See
+`patterns/meta/bp-036-predicate-registry.md` for the Pattern A vs
+Pattern B decision rule and `phases/07-skill-signed-handoff/references/and-gating.md`
+for the AND-trigger walkthrough.
+
 ## Pre-scaffolding (Stage 9a, skill-references-scaffolder only)
 
 `skill-references-scaffolder` is a verifier — it walks an existing target

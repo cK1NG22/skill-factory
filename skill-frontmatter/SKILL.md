@@ -177,6 +177,7 @@ Expected: `notes.md` contains a `BLOCKER:` line; no `output.yaml` produced.
 - **BP-005** — allowed-tools declared
 - **BP-028** — `BLOCKER:` convention when self-lint fails twice
 - **BP-033** — read only `input.md`, never open `patterns/` directly
+- **BP-035** — no factory preamble (SKILL.md opens directly into procedure; gstack-style bash preambles eat sub-skill Agent context budget)
 
 ## What to do if you're stuck
 

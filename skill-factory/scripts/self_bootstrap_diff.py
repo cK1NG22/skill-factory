@@ -8,6 +8,14 @@ dir) against the committed `skill-factory/` tree. Reports structural
 equivalence per the plan v2 tiebreaker rule: committed code is
 authoritative; spec divergence updates the spec, not the code.
 
+Canonical enforcement site for BP-038 (self-bootstrap acceptance
+criterion for spec-driven authoring tools). The verdict's gate-match
+invariant — regenerated AND committed must both PASS — was added in
+Stage 10c after BP-003's name-rule false-positive on `skill-factory`'s
+own slug led to the `meta-skill: true` carve-out. See
+`patterns/meta/bp-038-self-bootstrap.md` for the full rule and the
+BP-003 §"Meta-skill exception" linkage.
+
 Usage:
     self_bootstrap_diff.py <scratch-dir> <committed-skill-dir>
 

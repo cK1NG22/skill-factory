@@ -126,3 +126,4 @@ This is an intentionally narrow slice — the classifier proves end-to-end, the 
 - BP-029: build incrementally (why Phases 3–6 are deferred)
 - BP-033: driver-materialized context packs (Phase 3 contract)
 - BP-034: sub-skills only for cross-skill reuse (Phase 2's `invokes_skills` gate)
+- BP-037: thin top-director SKILL.md (the two-level hierarchy this spine documents — top SKILL.md + per-phase `director.md`)

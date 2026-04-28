@@ -138,3 +138,4 @@ cd ~/Projects/skill-factory/skill-factory && python3 -m unittest discover tests
 - **BP-032** — fixtures at skill root
 - **BP-033** — driver-materialized context packs (the `input.md` contract every sub-skill consumes; Phase 8 gate uses a narrower schema, still BP-033-compliant)
 - **BP-034** — sub-skills only for cross-skill reuse (enforced at Phase 2 via `invokes_skills` ecosystem check; Phase 8 gate is itself a BP-034 case — cross-uses `compliance_check.py`)
+- **BP-037** — thin top-director SKILL.md (this driver embodies the pattern: 10 single-line Procedure steps pointing at `phases/<N>-<name>/director.md`; `references_lint --strict-two-level` enforces the structure)
