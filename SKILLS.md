@@ -81,7 +81,7 @@ Sub-skills write FINDINGs to their `notes.md`. The driver aggregates. For the au
 **Enforces patterns:** BP-010 (apply-once-carry-forward), BP-011 (announce transitions, when `has_hitl`), BP-012 (hard gates, when `has_hitl`), BP-013 (ask-user-first, when `has_hitl`), BP-015 (numbered questions, when `has_hitl`), BP-016 (≤4 inline questions, when `has_hitl`), BP-028 (BLOCKER convention), BP-033 (read only `input.md`)
 **When invoked:** Driver Phase 4 when `has_phases: true`. Second sub-skill after `skill-frontmatter`. Stage 7a ships it standalone; Stage 7b (pending) wires the driver's Phase 4 to invoke it.
 **Standalone usable:** Yes — `/skill-phase-designer <input.md-path>`. Reads `input.md`, produces `output.md` + `notes.md` in the same directory.
-**Status:** 🟢 Live standalone (Stage 7a shipped 2026-04-23). 23/23 phase-lint tests pass. Live Agent verification against all three fixtures: no-HITL → 9-step Procedure with lint clean; HITL → 6-step Procedure with 3 hard gates + AskUserQuestion choices + phase-transition announcements, lint clean; gaps → correct BLOCKER on <3-step walkthrough. Driver integration pending Stage 7b.
+**Status:** 🟢 Live + driver-integrated (Stage 7a shipped 2026-04-23 standalone; Stage 7b wired the driver). 33/33 phase-lint tests pass. Driver-materialized packs verified live to produce lint-clean `output.md` on both no-HITL (acme-board-memo → 9 steps) and HITL (phased-hitl-with-reuse → 6 steps / 3 hard gates / 1 numbered inline question); gaps fixture → correct BLOCKER at Step 4 on <3-step walkthrough.
 
 ---
 
@@ -153,7 +153,7 @@ Sub-skills write FINDINGs to their `notes.md`. The driver aggregates. For the au
 **Enforces patterns:** BP-024 (signed handoffs)
 **When invoked:** Driver Phase 4, only in pipeline-orchestrator and multi-model-reasoning archetypes.
 **Standalone usable:** Yes — `/skill-signed-handoff <pipeline-spec>`.
-**Status:** ⚪ Deferred (until first pipeline-orchestrator archetype ships)
+**Status:** 🟢 Live + driver-integrated (Stage 8c shipped 2026-04-23 as `db48106` standalone; Stage 9b wired into driver Phase 6 when `has_phases ∧ invokes_skills`). 36/36 lint tests pass (six-rule BP-024 contract — `--sign`/`--verify` modes, `hashlib.sha256` import+call, non-empty `SIGNED_FIELDS`, reachable exit codes 0/1/2/3, canonical `sort_keys`). Driver-materialized packs verified live for acme-board-memo's /docx handoff (5 SIGNED_FIELDS).
 
 ---
 
@@ -189,7 +189,7 @@ Sub-skills write FINDINGs to their `notes.md`. The driver aggregates. For the au
 **Enforces patterns:** BP-021 (output home), BP-022 (cron observability)
 **When invoked:** Driver Phase 4, only in scheduled/cron and trend/longitudinal archetypes.
 **Standalone usable:** Yes.
-**Status:** ⚪ Deferred (until first cron archetype ships)
+**Status:** 🟢 Live + driver-integrated (Stage 9a — wired into driver Phase 5 when `is_scheduled` fires). 28/28 lint tests pass (BP-022 Rules A–D — `result.json` shape, artifact placement, `latest.json` pointer at skill root, required-key schema — plus snippet-mode and scripts-dir-mode CLI smoke).
 
 ---
 
@@ -201,7 +201,7 @@ Sub-skills write FINDINGs to their `notes.md`. The driver aggregates. For the au
 **Enforces patterns:** BP-006 (180–220 line SKILL.md), BP-007 (detail in references), BP-008 (one level deep), BP-009 (parallel folders), BP-025 (sub-skills are siblings — refuses to nest)
 **When invoked:** Driver Phase 5, before compliance gate. Always runs (universal post-amble).
 **Standalone usable:** Yes — `/skill-references-scaffolder <session-workspace>`.
-**Status:** 🔵 Planned (Stage 7+)
+**Status:** 🟢 Live + driver-integrated (Stage 9a — wired into driver Phase 5 when `has_references` fires). 51/51 lint tests pass (BP-007 cited-on-demand, BP-008 one-level-deep `references/`, BP-009 parallel folders + `--strict-two-level` citation walk for the two-level director hierarchy).
 
 ---
 
@@ -225,7 +225,7 @@ Sub-skills write FINDINGs to their `notes.md`. The driver aggregates. For the au
 **Enforces patterns:** All patterns enforced by `skill-compliance` (delegated)
 **When invoked:** Driver Phase 5, after assembly. Universal post-amble.
 **Standalone usable:** No — designed for in-pipeline use. Use `/skill-compliance` directly for standalone audits.
-**Status:** 🔵 Planned (Stage 7+)
+**Status:** 🟢 Live + driver-integrated (Stage 10a shipped standalone; Stage 10b wired into driver Phase 8). 34/34 tests pass (Family 1 subprocess into `compliance_check.py` + Family 2 Check 14 meta-BP citation scanner over `SKILL.md` / `references/` / `phases/*/director.md` / `phases/*/references/`. Stage 10c added the `meta-skill: true` exception so factory-internal artifacts auto-skip Check 14 — 9/9 factory artifacts pass their own gate).
 
 ---
 

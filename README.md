@@ -1,12 +1,12 @@
 # skill-factory
 
-A composable factory for authoring Claude Code skills from a single input spec — hands-off, archetype-aware, compliance-gated.
+A composable factory for authoring Claude Code skills from a single input spec — hands-off, trait-classified, compliance-gated. Has shipped 2 client deliveries (`acme-board-memo`, `discovery-call-prep`) end-to-end, hands-off after spec validation.
 
 ## What this is
 
-`skill-factory` is a **driver skill** plus a set of **reusable sub-skills**. You feed it a `client-spec.md`. It classifies the target skill into one of 15 archetypes, runs that archetype's pipeline of sub-skills (each encoding one well-tested authoring best-practice), assembles the output, runs it through a 13-check compliance gate, and lands the result in a per-client git repo as a working `~/.claude/skills/<company>-<slug>/` symlink.
+`skill-factory` is a **driver skill** plus a set of **reusable sub-skills**. You feed it a `client-spec.md`. The driver classifies the target skill against **5 trait predicates** (`has_references`, `has_phases`, `has_hitl`, `is_scheduled`, `invokes_skills` — Frame C, locked by ADR-0001), unions the sub-skills whose traits fire, runs each as an isolated Agent subagent over a driver-materialized context pack, assembles the output, runs it through a 13-check compliance gate, and lands the result in a per-client git repo as a working `~/.claude/skills/<slug>` symlink.
 
-When a sub-skill improves, every archetype that uses it inherits the upgrade automatically. When a new authoring best-practice is discovered, it gets a `BP-###` entry in `PATTERNS.md` and the relevant sub-skill enforces it from then on.
+When a sub-skill improves, every trait whose firing-set includes it inherits the upgrade automatically. When a new authoring best-practice is discovered, it gets a `BP-###` entry under `patterns/` and the relevant sub-skill enforces it from then on.
 
 ## The vision: hands-off
 
@@ -17,59 +17,60 @@ If the spec is good, the factory commits to producing a 13/13-compliant skill en
 ## Architecture
 
 ```
-client-spec.md  ──►  /skill-factory <company> <spec>
+client-spec.md  ──►  /skill-factory <slug> <spec-path>
                         │
                         ▼
-                 ┌──────────────────────┐
-                 │  Phase 1: validate   │  ──►  skill-spec-validator (Agent)
-                 └──────────────────────┘            │
-                        │                            ├─ STATUS: pass → continue
-                        │                            └─ STATUS: gaps → exit cleanly with fix-list
+                 ┌────────────────────────────┐
+                 │  Phase 1: validate         │  ──►  skill-spec-validator (Agent)
+                 └────────────────────────────┘            │
+                        │                                  ├─ STATUS: pass → continue
+                        │                                  └─ STATUS: gaps → exit with fix-list
                         ▼
-                 ┌──────────────────────┐
-                 │  Phase 2: classify   │  ──►  archetype-rubric.md → archetype.json
-                 └──────────────────────┘
+                 ┌────────────────────────────┐
+                 │  Phase 2: classify traits  │  ──►  trait_predicates.py → classifier.json
+                 │  (5 boolean predicates)    │       (has_references / has_phases / has_hitl /
+                 └────────────────────────────┘        is_scheduled / invokes_skills — Frame C)
                         ▼
-                 ┌──────────────────────┐
-                 │  Phase 3: load       │  ──►  references/archetypes/<archetype>.md
-                 │       manifest       │       → manifest.json (sub-skill sequence)
-                 └──────────────────────┘
+                 ┌────────────────────────────┐
+                 │  Phase 3: materialize      │  ──►  build_context_pack.py renders one
+                 │  context packs             │       phases/<NN>-<sub-skill>/input.md per
+                 └────────────────────────────┘       firing trait — sub-skills read ONLY their pack (BP-033)
                         ▼
-                 ┌──────────────────────┐
-                 │  Phase 4: invoke     │  ──►  per sub-skill in manifest:
-                 │  sub-skills (Agent)  │         spawn Agent → write phase output
-                 └──────────────────────┘            │
-                        │                            ├─ skill-frontmatter
-                        │                            ├─ skill-knowledge-mapper
-                        │                            ├─ skill-output-contract
-                        │                            └─ ... (per archetype)
+                 ┌────────────────────────────┐  • skill-frontmatter (always)
+                 │  Phases 4–6: spawn         │  • skill-phase-designer (has_phases)
+                 │  sub-skill Agents          │  • skill-references-scaffolder (has_references)
+                 │  in parallel               │  • skill-cron-observability (is_scheduled)
+                 └────────────────────────────┘  • skill-signed-handoff (has_phases ∧ invokes_skills)
                         ▼
-                 ┌──────────────────────┐
-                 │  Phase 5: assemble   │  ──►  skill-references-scaffolder merges →
-                 │  + compliance gate   │       skill-compliance (13/13)
-                 └──────────────────────┘
+                 ┌────────────────────────────┐
+                 │  Phase 8a: assemble        │  ──►  assemble_skill.py merges phase outputs → draft
+                 │  Phase 8b: compliance gate │       skill-compliance-gate (13 checks, factory-internal
+                 └────────────────────────────┘       artifacts skip Check 14 via meta-skill: true)
                         ▼
-                 ┌──────────────────────┐
-                 │  Phase 6: materialize│  ──►  ensure ~/Projects/<company>-claude-skills/
-                 │  + optional polish   │       move draft, commit+push, symlink ~/.claude/skills/
-                 └──────────────────────┘            │
-                                                    └─ optional: skill-eval-loop, skill-autoresearch-gate
+                 ┌────────────────────────────┐
+                 │  Phase 9: materialize      │  ──►  materialize_skill.py creates per-client repo
+                 │  per-client + install      │       (~/Projects/<owner>-claude-skills/), copies skill,
+                 └────────────────────────────┘       symlinks ~/.claude/skills/<slug>, gh repo create + push
+                        ▼
+                 ┌────────────────────────────┐
+                 │  Phase 99: report          │  ──►  per-run summary written to ~/Claude/skill-factory/runs/
+                 └────────────────────────────┘
 ```
 
 ## How to author a new client skill (5 steps)
 
-1. **Write the spec.** Copy `skill-factory/assets/client-spec-template.md` into a working file (e.g., `~/Claude/specs/acme-onboarding.md`). Fill in every required section. The template comments explain what each section needs.
-2. **Validate the spec.** `/skill-spec-validator ~/Claude/specs/acme-onboarding.md` — get a pass or a gap-report.
-3. **Run the factory.** `/skill-factory acme ~/Claude/specs/acme-onboarding.md` — sit back.
-4. **Receive the result.** Factory creates (or reuses) `~/Projects/acme-claude-skills/`, lands the new skill at `acme-onboarding/`, commits + pushes, and symlinks `~/.claude/skills/acme-onboarding`.
-5. **Use it.** `/acme-onboarding <args>` works immediately.
+1. **Write the spec.** Copy `skill-factory/assets/client-spec-template.md` into a working file (e.g., `~/Claude/specs/acme-board-memo.md`). Fill in every required section, including the optional `## Delivery / Remote repo: yes|no` line if you need to opt out of auto-publishing to GitHub.
+2. **Validate the spec.** `/skill-spec-validator ~/Claude/specs/acme-board-memo.md` — get a pass or a gap-report.
+3. **Run the factory.** `/skill-factory acme-board-memo ~/Claude/specs/acme-board-memo.md` — sit back.
+4. **Receive the result.** Factory creates (or reuses) `~/Projects/<owner>-claude-skills/`, lands the skill at `<slug>/`, commits (and pushes if `Remote repo: yes`), and symlinks `~/.claude/skills/<slug>`.
+5. **Use it.** `/<slug> <args>` works immediately. Two real deliveries (`acme-board-memo`, `discovery-call-prep`) shipped this way.
 
 ## How to add or modify a sub-skill
 
 See `CONTRIBUTING.md` for the full workflow. Short version:
 
 1. **Pattern first, code second.** If your change introduces a new authoring discipline, add an entry to `PATTERNS.md` (`BP-###`) before any code.
-2. **Sub-skill first, archetype second.** If your change adds a new sub-skill, add an entry to `SKILLS.md` describing its purpose, contract, and which patterns it enforces, before authoring the SKILL.md itself.
+2. **Sub-skill first, trait second.** If your change adds a new sub-skill, add an entry to `SKILLS.md` describing its purpose, contract, which patterns it enforces, and which trait predicate(s) fire it, before authoring the SKILL.md itself.
 3. **Fixtures required.** Every sub-skill ships with `references/fixtures/input.md` + `expected-output.md`. No exceptions.
 4. **Run compliance locally.** `/skill-compliance ~/Projects/skill-factory/skill-<your-skill>/` must pass 13/13.
 
@@ -89,7 +90,7 @@ skill-factory/                   ← this repo (private, ck22coding/skill-factor
 ├── skill-spec-validator/        ← gates pipeline on input quality (Stage 3)
 ├── skill-frontmatter/           ← (Stage 6+)
 ├── skill-description-triggers/  ← (later)
-├── ... (15 sub-skills total, built incrementally)
+├── ... (9 sub-skills shipped + driver-integrated; new traits add new sub-skills under Frame C)
 └── skill-compliance/            ← 13-check audit (migrated from ~/.claude/skills/, Stage 2)
 
 ~/.claude/skills/                ← install layer: symlinks into this repo
@@ -109,33 +110,45 @@ skill-factory/                   ← this repo (private, ck22coding/skill-factor
   - `/kpi-setter` — wrapped by `skill-kpi-design`.
   - `/autoresearch` — wrapped by `skill-autoresearch-gate`.
 
-## Status & roadmap
+## Status
 
-| Stage | What | Status |
-|---|---|---|
-| 1 | Repo + thinking docs (this) | **In progress** |
-| 2 | Migrate `/skill-compliance` into the repo | Pending |
-| 3 | Build `skill-spec-validator` end-to-end (template sub-skill) | Pending |
-| 4 | Spec authoring ergonomics (template + example + anti-patterns) | Pending |
-| 5 | Driver SKILL.md skeleton + 1 archetype manifest | Pending |
-| 6 | Build `skill-frontmatter` (proves composition) | Pending |
-| 7–N | Remaining sub-skills for first archetype, one per stage | Pending |
-| M | End-to-end MVP demo | Pending |
-| M+1+ | Add archetypes one at a time | Pending |
-| Final | Self-bootstrap dogfood — factory regenerates itself | Pending |
+The factory has shipped through **Stage 12 + finish-the-factory Phase 3** (2026-04-28). It is a **delivery system** — the full pipeline runs end-to-end from spec to installed skill on disk + symlinked into `~/.claude/skills/`, gate-clean, hands-off after the Phase 1 spec-validator gate.
 
-**First-archetype choice (transformation vs phased-HITL vs pipeline-orchestrator) is open** pending a Carter+Adam discussion.
+| Milestone | Outcome |
+|---|---|
+| Stage 2: `/skill-compliance` migrated into repo | ✓ shipped |
+| Stage 3: `skill-spec-validator` end-to-end (template sub-skill) | ✓ shipped |
+| Stage 3.5: Frame C lock (rule engine over 5 traits, ADR-0001) | ✓ shipped — retired the 15-archetype taxonomy |
+| Stage 4: Spec authoring aids (template + example + anti-patterns) | ✓ shipped — 3/3 pass `/skill-spec-validator` |
+| Stage 6a/6b: `skill-frontmatter` standalone + driver-wired | ✓ shipped — proved Agent-tool composition |
+| Stage 7a/7b: `skill-phase-designer` standalone + driver-wired | ✓ shipped |
+| Stage 8c: `skill-signed-handoff` standalone | ✓ shipped |
+| Stage 9a/9b: `skill-references-scaffolder` + `skill-cron-observability` shipped, signed-handoff driver-wired | ✓ shipped — all conditional sub-skills driver-integrated |
+| Stage 9c: Self-bootstrap dogfood — factory reproduces itself | ✓ shipped — Principle D satisfied |
+| Stage 10a/10b/10c: `skill-compliance-gate` standalone + driver-wired + meta-skill exception | ✓ shipped — bonus-sweep invariant: 9/9 factory artifacts pass their own gate |
+| Stage 11a/11b/11c: `materialize_skill.py` + Phase 9 driver wiring + first real client delivery | ✓ shipped — `acme-board-memo` installed |
+| Stage 11e: Second client delivery from a Notion-sourced spec | ✓ shipped — `discovery-call-prep` installed |
+| Stage 12: Polish wave (slug pattern + materializer fixes) | ✓ shipped |
+| Finish-the-factory wave (post-Stage-12) | Phases 1–3 ✓ shipped (cleanup, BP cross-citation, portable fixture paths); Phases 4–7 in flight (doc realignment, open-decision wave, live verifications, v1.0 tag) |
+
+**Headline numbers**
+- 9 sub-skills shipped + all driver-integrated + all gate-passing
+- 2 client skills delivered (`acme-board-memo`, `discovery-call-prep`)
+- 2 per-client repos materialized (`~/Projects/acme-claude-skills/` local-only; `ck22coding/optimal-skills` PRIVATE on GitHub)
+- 38 best-practices codified (12 Universal / 11 Conditional / 15 Meta) under `patterns/`
+- 367 tests across 7 sub-skill suites
 
 ## Glossary
 
 - **Driver** — the top-level `/skill-factory` skill that orchestrates everything.
-- **Sub-skill** — a single-responsibility authoring utility (e.g., `skill-frontmatter`, `skill-kpi-design`). Independently invocable.
-- **Archetype** — one of 15 categories a target skill can fall into (transformation, phased-HITL, pipeline-orchestrator, etc.). Each has its own sub-skill sequence.
-- **Manifest** — `references/archetypes/<archetype>.md`, declaring which sub-skills run in what order for that archetype.
+- **Sub-skill** — a single-responsibility authoring utility (e.g., `skill-frontmatter`, `skill-phase-designer`). Independently invocable as a slash command; also Agent-spawned by the driver.
+- **Trait** — one of 5 boolean predicates the driver classifies a spec against (`has_references`, `has_phases`, `has_hitl`, `is_scheduled`, `invokes_skills`). Sub-skills fire when their associated trait fires. Locked by ADR-0001 (Frame C); the old 15-archetype taxonomy is retired.
 - **Spec** — a `client-spec.md` file describing the target skill. The single human touchpoint.
-- **Gate** — a hard checkpoint. The factory has two: `skill-spec-validator` (Phase 1) and `skill-compliance` (Phase 5).
-- **Pattern (BP-###)** — a documented best-practice in `PATTERNS.md`. Sub-skills enforce them.
+- **Gate** — a hard checkpoint. The factory has two: `skill-spec-validator` (Phase 1) and `skill-compliance-gate` (Phase 8b).
+- **Pattern (BP-###)** — a documented best-practice under `patterns/`. Sub-skills enforce them; the patterns directory has 12 Universal / 11 Conditional / 15 Meta files plus a template.
+- **Meta-skill marker** — a `meta-skill: true` line in a SKILL.md frontmatter that tells `skill-compliance-gate` this artifact is factory-internal (not a client deliverable) and should skip Check 14 (BP-033 leakage rule). Stage 10c introduced; lets the factory's own 9 artifacts pass their own gate.
 - **Session workspace** — `~/Claude/skill-factory/<slug>-<timestamp>/`, the filesystem data bus between driver and sub-skills.
+- **Per-client repo** — `~/Projects/<owner>-claude-skills/` (e.g. `acme-claude-skills/`, `optimal-skills/`), auto-created by Phase 9. Houses one or more shipped client skills; optionally pushed to GitHub via `gh` CLI based on the spec's `## Delivery / Remote repo` line.
 
 ## Why this is so in-depth
 
