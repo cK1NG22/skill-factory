@@ -31,11 +31,11 @@ invokes_skills: false
 ```
 
 ## BPs to enforce
-- /Users/carterking/Projects/skill-factory/patterns/bp-007-references-loaded-on-demand.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-008-references-one-level-deep.md
+- {{REPO_ROOT}}/patterns/bp-007-references-loaded-on-demand.md
+- {{REPO_ROOT}}/patterns/bp-008-references-one-level-deep.md
 
 ## Target skill directory
-/Users/carterking/Projects/skill-factory/skill-references-scaffolder/fixtures/passing-skill
+{{REPO_ROOT}}/skill-references-scaffolder/fixtures/passing-skill
 
 ## Output locations
 Write into the directory containing this `input.md`:

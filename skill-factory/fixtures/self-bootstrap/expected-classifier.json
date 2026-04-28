@@ -1,6 +1,6 @@
 {
   "mode": "spec",
-  "input": "/Users/carterking/Projects/skill-factory/skill-factory/fixtures/self-bootstrap/skill-factory-spec.md",
+  "input": "{{REPO_ROOT}}/skill-factory/fixtures/self-bootstrap/skill-factory-spec.md",
   "traits": {
     "has_references": {
       "fires": true,

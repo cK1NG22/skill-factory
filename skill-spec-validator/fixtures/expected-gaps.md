@@ -24,7 +24,7 @@ Total: **2 missing_required, 7 ambiguous_required, 0 optional sections present.*
 
 ```yaml
 status: gaps
-spec_path: /Users/carterking/Projects/skill-factory/skill-spec-validator/fixtures/gaps-spec.md
+spec_path: {{REPO_ROOT}}/skill-spec-validator/fixtures/gaps-spec.md
 missing_required:
   - section: "Trigger phrases"
     line: null

@@ -101,6 +101,8 @@ import sys
 from pathlib import Path
 from typing import Callable
 
+from fixture_paths import expand_repo_root
+
 # --- Universal + Conditional BP lookup per sub-skill ---
 # Each sub-skill has its own canonical list of BPs. The frontmatter sub-skill
 # uses the 5 frontmatter Universals (BP-001..BP-005). skill-phase-designer
@@ -351,7 +353,7 @@ _SUB_SKILL_OUTPUT_BLURB: dict[str, str] = {
         "Write into the directory containing this `input.md`:\n"
         "- `output-signature-template.py` — the stamped signature script ready to drop into the "
         "target skill's `scripts/` directory. Stamped from "
-        "`/Users/carterking/Projects/skill-factory/skill-signed-handoff/scripts/signature-template.py` "
+        "`{{REPO_ROOT}}/skill-signed-handoff/scripts/signature-template.py` "
         "with the spec's argument-bearing fields list.\n"
         "- `notes.md` — `BLOCKER:` lines if any, otherwise short observations (declared SIGNED_FIELDS, "
         "upstream/downstream phase bindings).\n"
@@ -609,7 +611,7 @@ def build_gate_pack(
     )
     out_dir.mkdir(parents=True, exist_ok=True)
     input_md = out_dir / "input.md"
-    input_md.write_text(pack, encoding="utf-8")
+    input_md.write_text(expand_repo_root(pack), encoding="utf-8")
     return input_md
 
 
@@ -720,7 +722,9 @@ def build_pack(
 
     out_dir.mkdir(parents=True, exist_ok=True)
     input_md = out_dir / "input.md"
-    input_md.write_text(pack, encoding="utf-8")
+    input_md.write_text(
+        expand_repo_root(pack, root=patterns_root.parent), encoding="utf-8"
+    )
     return input_md
 
 

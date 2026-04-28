@@ -52,11 +52,11 @@ invokes_skills: true
 ```
 
 ## BPs to enforce
-- /Users/carterking/Projects/skill-factory/patterns/bp-001-trigger-phrases.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-002-pushy-description.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-003-name-rules.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-004-description-length.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-005-allowed-tools.md
+- {{REPO_ROOT}}/patterns/bp-001-trigger-phrases.md
+- {{REPO_ROOT}}/patterns/bp-002-pushy-description.md
+- {{REPO_ROOT}}/patterns/bp-003-name-rules.md
+- {{REPO_ROOT}}/patterns/bp-004-description-length.md
+- {{REPO_ROOT}}/patterns/bp-005-allowed-tools.md
 
 ## Output locations
 Write into the directory containing this `input.md`:

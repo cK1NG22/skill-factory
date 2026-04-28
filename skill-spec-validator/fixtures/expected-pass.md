@@ -6,7 +6,7 @@ When `skill-spec-validator` runs against `fixtures/passing-spec.md`, it should p
 
 ```yaml
 status: pass
-spec_path: /Users/carterking/Projects/skill-factory/skill-spec-validator/fixtures/passing-spec.md
+spec_path: {{REPO_ROOT}}/skill-spec-validator/fixtures/passing-spec.md
 sections_found:
   - Company
   - Skill slug

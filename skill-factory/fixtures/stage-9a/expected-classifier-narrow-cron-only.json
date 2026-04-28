@@ -1,6 +1,6 @@
 {
   "mode": "spec",
-  "input": "/Users/carterking/Projects/skill-factory/skill-factory/fixtures/stage-9a/narrow-cron-only.md",
+  "input": "{{REPO_ROOT}}/skill-factory/fixtures/stage-9a/narrow-cron-only.md",
   "traits": {
     "has_references": {
       "fires": false,

@@ -47,12 +47,12 @@ invokes_skills: true
 ```
 
 ## BPs to enforce
-- /Users/carterking/Projects/skill-factory/patterns/bp-010-apply-once-carry-forward.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-011-announce-phase-transitions.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-012-hard-gates.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-013-ask-user-first.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-015-number-questions.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-016-inline-question-rule.md
+- {{REPO_ROOT}}/patterns/bp-010-apply-once-carry-forward.md
+- {{REPO_ROOT}}/patterns/bp-011-announce-phase-transitions.md
+- {{REPO_ROOT}}/patterns/bp-012-hard-gates.md
+- {{REPO_ROOT}}/patterns/bp-013-ask-user-first.md
+- {{REPO_ROOT}}/patterns/bp-015-number-questions.md
+- {{REPO_ROOT}}/patterns/bp-016-inline-question-rule.md
 
 ## Output locations
 Write into the directory containing this `input.md`:

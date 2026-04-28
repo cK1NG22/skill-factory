@@ -34,12 +34,12 @@ invokes_skills: false
 ```
 
 ## BPs to enforce
-- /Users/carterking/Projects/skill-factory/patterns/bp-007-references-loaded-on-demand.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-008-references-one-level-deep.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-009-parallel-folders.md
+- {{REPO_ROOT}}/patterns/bp-007-references-loaded-on-demand.md
+- {{REPO_ROOT}}/patterns/bp-008-references-one-level-deep.md
+- {{REPO_ROOT}}/patterns/bp-009-parallel-folders.md
 
 ## Target skill directory
-/Users/carterking/Projects/skill-factory/skill-references-scaffolder/fixtures/passing-with-phases-skill
+{{REPO_ROOT}}/skill-references-scaffolder/fixtures/passing-with-phases-skill
 
 ## Output locations
 Write into the directory containing this `input.md`:

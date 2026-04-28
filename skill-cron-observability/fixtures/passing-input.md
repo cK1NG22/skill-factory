@@ -46,8 +46,8 @@ invokes_skills: false
 ```
 
 ## BPs to enforce
-- /Users/carterking/Projects/skill-factory/patterns/bp-022-cron-observability.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-021-output-home.md
+- {{REPO_ROOT}}/patterns/bp-022-cron-observability.md
+- {{REPO_ROOT}}/patterns/bp-021-output-home.md
 
 ## Output locations
 Write into the directory containing this `input.md`:

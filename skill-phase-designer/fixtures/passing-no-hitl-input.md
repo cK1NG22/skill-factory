@@ -51,7 +51,7 @@ invokes_skills: true
 ```
 
 ## BPs to enforce
-- /Users/carterking/Projects/skill-factory/patterns/bp-010-apply-once-carry-forward.md
+- {{REPO_ROOT}}/patterns/bp-010-apply-once-carry-forward.md
 
 ## Output locations
 Write into the directory containing this `input.md`:
