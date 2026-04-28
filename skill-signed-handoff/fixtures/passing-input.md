@@ -50,7 +50,7 @@ invokes_skills: true
 ## BPs to enforce
 - /Users/carterking/Projects/skill-factory/patterns/bp-024-signed-handoffs.md
 - /Users/carterking/Projects/skill-factory/patterns/bp-028-blocker-convention.md
-- /Users/carterking/Projects/skill-factory/patterns/bp-033-input-md-only.md
+- /Users/carterking/Projects/skill-factory/patterns/meta/bp-033-driver-context-packs.md
 
 ## Output locations
 Write into the directory containing this `input.md`:

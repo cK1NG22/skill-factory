@@ -69,4 +69,4 @@ of those would silently break the sub-skill. With the contract:
 
 - Agent-spawn mechanics: `spawn-subagent.md`.
 - Trait-fires gating (which phases fire at all): `trait-gating.md`.
-- BP-033 canonical text: `../../patterns/bp-033-driver-materialized-context-packs.md`.
+- BP-033 canonical text: `../../patterns/meta/bp-033-driver-context-packs.md`.

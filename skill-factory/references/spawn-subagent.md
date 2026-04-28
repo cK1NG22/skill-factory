@@ -63,4 +63,4 @@ conversation, the full spec, or the classifier output — it sees ONLY its
 - Pack shape per sub-skill: `invocation-contract.md`.
 - Trait-gated conditional entry (which phases run at all): `trait-gating.md`.
 - BP-028 text: `../../patterns/bp-028-blocker-on-double-fail.md`.
-- BP-033 text: `../../patterns/bp-033-driver-materialized-context-packs.md`.
+- BP-033 text: `../../patterns/meta/bp-033-driver-context-packs.md`.
