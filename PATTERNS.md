@@ -92,6 +92,10 @@ Never applied to client skills. Govern how the factory itself is built and opera
 | BP-032 | Fixtures at skill root, not under references/ | Factory sub-skill layout | [patterns/meta/bp-032-fixtures-at-skill-root.md](patterns/meta/bp-032-fixtures-at-skill-root.md) |
 | BP-033 | Driver-materialized context packs | Factory driver discipline | [patterns/meta/bp-033-driver-context-packs.md](patterns/meta/bp-033-driver-context-packs.md) |
 | BP-034 | Sub-skills only for cross-skill reuse | Authoring discipline | [patterns/meta/bp-034-subskill-vs-reference.md](patterns/meta/bp-034-subskill-vs-reference.md) |
+| BP-035 | No factory preamble (no gstack-style bash header) | Factory output shape | [patterns/meta/bp-035-no-factory-preamble.md](patterns/meta/bp-035-no-factory-preamble.md) |
+| BP-036 | Predicate registry for compound sub-skill triggers | Factory driver gating | [patterns/meta/bp-036-predicate-registry.md](patterns/meta/bp-036-predicate-registry.md) |
+| BP-037 | Thin top-director SKILL.md (two-level director hierarchy) | Factory architecture | [patterns/meta/bp-037-thin-director.md](patterns/meta/bp-037-thin-director.md) |
+| BP-038 | Self-bootstrap acceptance criterion | Factory verification | [patterns/meta/bp-038-self-bootstrap.md](patterns/meta/bp-038-self-bootstrap.md) |
 
 ---
 
@@ -99,8 +103,8 @@ Never applied to client skills. Govern how the factory itself is built and opera
 
 - **Universal:** 12 BPs (enforced on every client skill)
 - **Conditional:** 11 BPs (fired by 5 traits)
-- **Meta:** 11 BPs (factory-internal, never applied to client skills)
-- **Total:** 34 BPs + 1 template
+- **Meta:** 15 BPs (factory-internal, never applied to client skills)
+- **Total:** 38 BPs + 1 template
 
 ## Pattern numbering reservations
 
