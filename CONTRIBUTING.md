@@ -61,7 +61,7 @@ Per BP-034, sub-skills are ONLY for cross-skill reuse. Before opening a PR that 
 1. Open a PR adding an entry to `SKILLS.md` (purpose, inputs, outputs, enforces patterns, when invoked, standalone usable, status).
 2. Get review on the conceptual model BEFORE writing any code.
 3. Open the implementation PR:
-   - `~/Projects/skill-factory/skill-<name>/SKILL.md` (frontmatter + 180–220 line traffic director per BP-006)
+   - `~/Projects/skill-factory/skill-<name>/SKILL.md` (frontmatter + traffic director sized per BP-006: 180–220 lines for single-Procedure shape, or ≤150 lines for phased-orchestrator shape per BP-037)
    - `~/Projects/skill-factory/skill-<name>/references/` (detail lives here per BP-007)
    - `~/Projects/skill-factory/skill-<name>/references/fixtures/input.md` + `expected-output.md` (REQUIRED — no sub-skill ships without fixtures)
 4. Verify locally:
@@ -93,7 +93,7 @@ Conventions that have solidified as the factory built its first two sub-skills (
 
 - **BP-033 — sub-skills read input.md only.** The driver's Phase 3 materializes a `phases/NN-<sub-skill>/input.md` pack containing the spec excerpt, classified traits, and an explicit list of BP file paths. Sub-skills open ONLY that `input.md` plus the BPs it names. They never walk `patterns/` directly. Sub-skill SKILL.md Step 1 must say so.
 - **BP-034 — sub-skills only for cross-skill reuse.** If a sub-process would be used by exactly one parent, it belongs in that parent's `references/<topic>.md`, not in its own directory. `skill-spec-validator` enforces this against client specs at Phase 1 (filesystem-lookup against `~/.claude/skills/<name>/` — so the validator's behavior depends on the ecosystem's installed-skill state; a clean CI runner will reject specs that pass locally). Reviewers enforce this against factory PRs at review time.
-- **Sub-skill build pattern.** Every sub-skill ships with: its own directory at repo root (sibling to other sub-skills, per BP-025); its own `SKILL.md` (180–220 line traffic director); its own `references/<rules>.md` (authoritative rules contract); its own `scripts/<lint>.py` (pure-stdlib deterministic check); its own fixtures at skill root per BP-032 (passing + gaps + expected-output oracles); and its own tests at `tests/test_<lint>.py`.
+- **Sub-skill build pattern.** Every sub-skill ships with: its own directory at repo root (sibling to other sub-skills, per BP-025); its own `SKILL.md` (traffic director, 180–220 lines for single-Procedure shape per BP-006, or ≤150 lines for phased-orchestrator shape per BP-037 — driver-style sub-skills are rare; most factory sub-skills are single-Procedure); its own `references/<rules>.md` (authoritative rules contract); its own `scripts/<lint>.py` (pure-stdlib deterministic check); its own fixtures at skill root per BP-032 (passing + gaps + expected-output oracles); and its own tests at `tests/test_<lint>.py`.
 - **Stage cadence.** Each sub-skill stage goes: **build → live E2E (isolated Agent against every fixture) → audit sweep (unit tests + `/skill-compliance` + dogfood frontmatter lint on its own SKILL.md) → commit**. No scaffolding ahead of live consumers (BP-029).
 - **Lint is authoritative.** If a lint script and a rules doc disagree, **update the doc to match the lint, not the lint to match the doc**. The rules doc is the human-facing teaching surface; the script is the enforced contract. This keeps drift one-directional.
 

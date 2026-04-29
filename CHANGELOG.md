@@ -4,6 +4,44 @@ All notable changes to the Skill Factory.
 
 This project follows [Semantic Versioning](https://semver.org/). v1.0 anchors "first shipped version" per [ADR-0002](docs/decisions/ADR-0002-v1.0-success-criteria.md): 9 sub-skills driver-integrated and gate-clean, 2 real client deliveries, the bonus-sweep self-acceptance invariant satisfied.
 
+## [1.1.1] — 2026-04-29
+
+Wave B — BP-006 ↔ BP-037 (Principle E) body-size band reconciliation. Pure doc work; zero functional change. Resolves the dormant doc-debt enumerated in [ADR-0002 §1](docs/decisions/ADR-0002-v1.0-success-criteria.md) and queued there as the Stage 14 follow-up.
+
+### Reconciliation direction (ultrathink-locked)
+
+Option (c) — **driver-vs-sub-skill shape differentiation**. BP-006 (Universal) keeps its 180–220 working target for the **single-Procedure shape** (most factory sub-skills, transformation tools, research skills, simple HITL). BP-037 (Meta) explicitly carves out the **phased-orchestrator shape** (skills with `phases/<N>-*/director.md` sub-trees) at ≤150 top SKILL.md body-lines, with per-phase mechanics living in the phase directors. The two shapes are mutually exclusive — discriminated by the presence of `phases/<N>-*/director.md`. Rejected alternatives: (a) loosening BP-037 to ≤220 would invite monolith regrowth and undo Stage 9.0's deliberate compaction (201 → 113 body-lines); (b) tightening BP-006 to ≤150 universally would make many legitimately-complex single-Procedure skills non-compliant for no architectural gain.
+
+### Changed
+
+- **`patterns/bp-006-lean-traffic-director.md`** — rewritten to teach the shape-dependent target band. The "When applicable" section now explicitly enumerates the two shapes (single-Procedure 180–220 vs phased-orchestrator ≤150) and names the discriminator (presence of `phases/<N>-*/director.md`). Bidirectional cross-reference to BP-037 added.
+- **`patterns/meta/bp-037-thin-director.md`** — cross-reference to BP-006 expanded to call out the bidirectional reconciliation explicitly. The sentence now reads as a contract between the two BPs rather than a unilateral extension.
+- **`SKILLS.md`** (2 edits at the `skill-references-scaffolder` row) — the assembler's enforcement of BP-006 is now described with the shape qualifier ("180–220 for single-Procedure shapes, ≤150 for phased-orchestrator shapes per BP-037").
+- **`CONTRIBUTING.md`** (2 edits — sub-skill PR scaffolding + sub-skill build pattern) — same shape qualifier added so contributors authoring a new sub-skill see the correct target for their shape.
+
+### Why a PATCH bump (1.1.0 → 1.1.1) and not a MINOR
+
+Pure doc reconciliation. No source code touched (gate.py, compliance_check.py, the lint scripts — all unchanged). No new behavior, no new check, no API surface. The compliance check already reported `info` for thin top-directors below 180 — Wave B simply makes the contract that condition was already encoding into a canonical, written rule.
+
+### Tests
+
+**412 / 412 across 7 suites** (unchanged from v1.1.0 — Wave B is doc-only). Bonus-sweep gate-clean invariant unchanged: **9 / 9** factory artifacts. Driver canaries green: `phase_lint` reports 10 sequential steps; `references_lint --strict-two-level` reports 10 phase directors + flat 5-file `references/`.
+
+### Known unverified at v1.1.1
+
+Inherited from v1.1.0. Wave B does not unblock any of these:
+- Live Agent self-bootstrap E2E (Verification C).
+- Live `gh_ensure_local_origin` smoke (Verification B).
+- Stage 11d `test-acme-claude-skills` repo cleanup (Verification A).
+
+### Deferred post-v1.1.1
+
+- CI on PRs (Wave C).
+- Pre-commit hook (Wave D).
+- test-acme cleanup (Wave E).
+
+[1.1.1]: https://github.com/ck22coding/skill-factory/releases/tag/v1.1.1
+
 ## [1.1.0] — 2026-04-29
 
 Stage 13 — closes the meta-skill discipline loop with two new gate checks. Both run at Phase 8 alongside Check 14, share the meta-skill mental model, and ship as one bundle because they are perpendicular faces of the same factory↔client trust boundary.

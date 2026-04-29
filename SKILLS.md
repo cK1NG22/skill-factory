@@ -195,10 +195,10 @@ Sub-skills write FINDINGs to their `notes.md`. The driver aggregates. For the au
 
 ## skill-references-scaffolder
 
-**Purpose:** The assembler. Merges all phase outputs from the session workspace into `draft-skill/`. Creates the parallel-folder structure (`SKILL.md` + `phases/` + `references/` + `assets/`) per BP-009, ensures references are one level deep per BP-008, validates SKILL.md is in 180–220 line target per BP-006.
+**Purpose:** The assembler. Merges all phase outputs from the session workspace into `draft-skill/`. Creates the parallel-folder structure (`SKILL.md` + `phases/` + `references/` + `assets/`) per BP-009, ensures references are one level deep per BP-008, validates SKILL.md sits in BP-006's shape-dependent target band (180–220 for single-Procedure shapes, ≤150 for phased-orchestrator shapes per BP-037).
 **Inputs:** Session workspace `phases/` directory (all sub-skill outputs)
 **Outputs:** `draft-skill/` populated and ready for compliance gate
-**Enforces patterns:** BP-006 (180–220 line SKILL.md), BP-007 (detail in references), BP-008 (one level deep), BP-009 (parallel folders), BP-025 (sub-skills are siblings — refuses to nest)
+**Enforces patterns:** BP-006 (shape-dependent SKILL.md size: 180–220 for single-Procedure, ≤150 for phased-orchestrator per BP-037), BP-007 (detail in references), BP-008 (one level deep), BP-009 (parallel folders), BP-025 (sub-skills are siblings — refuses to nest)
 **When invoked:** Driver Phase 5, before compliance gate. Always runs (universal post-amble).
 **Standalone usable:** Yes — `/skill-references-scaffolder <session-workspace>`.
 **Status:** 🟢 Live + driver-integrated (Stage 9a — wired into driver Phase 5 when `has_references` fires). 51/51 lint tests pass (BP-007 cited-on-demand, BP-008 one-level-deep `references/`, BP-009 parallel folders + `--strict-two-level` citation walk for the two-level director hierarchy).
