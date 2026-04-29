@@ -23,6 +23,16 @@ ls -la ~/.claude/skills/ | grep -E "skill-(factory|spec-validator|frontmatter|co
 
 If you get permission errors, your existing `~/.claude/skills/skill-compliance/` may be a real directory that needs to be moved to a backup before symlinking. See Stage 2 in `~/.claude/plans/yeah-let-s-go-ahead-kind-nest.md` for the migration recipe.
 
+### Activate the pre-commit hook (recommended)
+
+The repo ships a fast pre-commit hook at `.githooks/pre-commit` that runs the driver canaries (`phase_lint` + `references_lint --strict-two-level`) plus a frontmatter lint on any staged `SKILL.md` files. Typical runtime is under one second.
+
+```bash
+git config core.hooksPath .githooks
+```
+
+That single command points git at the in-repo `.githooks/` directory, so the hook is picked up automatically and stays in sync as `git pull` brings in updates. Bypass once with `git commit --no-verify` if you genuinely need to (the full gauntlet + bonus-sweep run in CI on every PR per `.github/workflows/ci.yml`, so bypass-here-fix-later is a fine workflow).
+
 ## The PR discipline (read this before opening a PR)
 
 The factory has three "thinking docs" that govern everything: **`PATTERNS.md`** (index of best practices, linking to per-BP files under `patterns/`), **`SKILLS.md`** (sub-skill catalog), and **`HUB.md`** (running progress log, canonical at repo root and symlinked into Carter's memory). Code changes should follow doc changes, not lead them.

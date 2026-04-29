@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Skill Factory pre-commit hook — fast structural checks (~1s typical run).
+#
+# Activate locally:    git config core.hooksPath .githooks
+# Bypass once:         git commit --no-verify
+#
+# Scope (deliberately narrow — kept fast so developers don't reach for
+# --no-verify): driver canaries + frontmatter lint on staged SKILL.md
+# files. The full gauntlet (412 tests) + bonus-sweep (9 factory artifacts)
+# run in CI on every PR (.github/workflows/ci.yml, Wave C v1.2.0).
+
+set -euo pipefail
+
+start=$(date +%s)
+
+# Resolve the repo root so the hook works from any CWD.
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+failed=0
+
+# Driver canary 1 — phase_lint reports 10 sequential steps on the
+# skill-factory driver SKILL.md.
+if [ -f "skill-factory/SKILL.md" ]; then
+  out=$(python3 skill-phase-designer/scripts/phase_lint.py skill-factory/SKILL.md 2>&1) || {
+    echo "❌ phase_lint failed on skill-factory/SKILL.md"
+    echo "$out"
+    failed=1
+  }
+  if [ "$failed" -eq 0 ] && ! echo "$out" | grep -qE '10 step\(s\) detected in sequence 1\.\.10'; then
+    echo "❌ Driver phase_lint canary regressed."
+    echo "   Expected substring: '10 step(s) detected in sequence 1..10'"
+    echo "$out" | tail -10
+    failed=1
+  fi
+fi
+
+# Driver canary 2 — references_lint --strict-two-level reports 10 phase
+# directors on the driver tree.
+if [ "$failed" -eq 0 ] && [ -d "skill-factory" ]; then
+  out=$(python3 skill-references-scaffolder/scripts/references_lint.py skill-factory --strict-two-level 2>&1) || {
+    echo "❌ references_lint --strict-two-level failed on skill-factory"
+    echo "$out"
+    failed=1
+  }
+  if [ "$failed" -eq 0 ] && ! echo "$out" | grep -qE '10 phase director\(s\) inspected'; then
+    echo "❌ Driver references_lint canary regressed."
+    echo "   Expected substring: '10 phase director(s) inspected'"
+    echo "$out" | tail -10
+    failed=1
+  fi
+fi
+
+# Frontmatter lint — only on SKILL.md files that are part of this commit.
+# Picks up new + modified + renamed SKILL.md paths, skipping deletions.
+if [ "$failed" -eq 0 ]; then
+  staged_skill_mds=$(git diff --cached --name-only --diff-filter=AMR | grep -E '(^|/)SKILL\.md$' || true)
+  if [ -n "$staged_skill_mds" ]; then
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
+      if ! python3 skill-frontmatter/scripts/frontmatter_lint.py "$f" >/dev/null 2>&1; then
+        echo "❌ frontmatter_lint failed on $f"
+        python3 skill-frontmatter/scripts/frontmatter_lint.py "$f" 2>&1 | tail -20
+        failed=1
+      fi
+    done <<< "$staged_skill_mds"
+  fi
+fi
+
+if [ "$failed" -ne 0 ]; then
+  echo ""
+  echo "Pre-commit checks failed. Fix the issue above, or bypass once with: git commit --no-verify"
+  echo "(The full gauntlet + bonus-sweep run in CI on every PR — bypass is for genuinely-fast iteration only.)"
+  exit 1
+fi
+
+elapsed=$(( $(date +%s) - start ))
+echo "✓ skill-factory pre-commit checks passed (${elapsed}s)"

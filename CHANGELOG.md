@@ -4,6 +4,40 @@ All notable changes to the Skill Factory.
 
 This project follows [Semantic Versioning](https://semver.org/). v1.0 anchors "first shipped version" per [ADR-0002](docs/decisions/ADR-0002-v1.0-success-criteria.md): 9 sub-skills driver-integrated and gate-clean, 2 real client deliveries, the bonus-sweep self-acceptance invariant satisfied.
 
+## [1.2.1] — 2026-04-29
+
+Wave D — pre-commit hook for fast structural checks. Opt-in dev-loop tooling. Complements Wave C (CI on PRs): pre-commit catches obvious structural regressions in <1s before they ever reach a PR; CI runs the full gauntlet + bonus-sweep on every PR. PATCH bump because the hook is opt-in, doesn't change shipped artifacts, and lives entirely in the developer's local toolchain.
+
+### Added
+
+- **`.githooks/pre-commit`** — bash script (~70 lines, executable). Runs three checks: (1) `phase_lint` on `skill-factory/SKILL.md` + exact-match assertion on the "10 step(s) detected in sequence 1..10" canary; (2) `references_lint --strict-two-level` on the driver tree + exact-match assertion on the "10 phase director(s) inspected" canary; (3) `frontmatter_lint` on any staged `SKILL.md` file (added/modified/renamed, not deleted). Typical runtime ~100ms; budget target was <2s. Bypass with `git commit --no-verify`.
+- **CONTRIBUTING.md "Activate the pre-commit hook" subsection** — single-command install (`git config core.hooksPath .githooks`) plus bypass instruction.
+
+### Why native git hooks (not the pre-commit framework)
+
+The `pre-commit` framework (`pip install pre-commit` + `.pre-commit-config.yaml`) is the popular default but adds a Python toolchain dependency. The Skill Factory's design discipline is pure-stdlib end-to-end — every lint script in the repo runs with vanilla `python3` and zero pip installs. The native `core.hooksPath` mechanism is built into git itself (no install needed), the hooks live in version control so updates flow with `git pull`, and the bypass mechanism (`--no-verify`) is the same. One-time activation is one command. Adopting the framework would be the wrong shape for this codebase.
+
+### Why not run the full gauntlet pre-commit
+
+The full gauntlet (412 tests across 7 suites) takes ~3s locally. Borderline for pre-commit UX — once a check exceeds two seconds, developers start using `--no-verify` reflexively, which defeats the point. The bonus-sweep is similar (~5s combined). Both are already running in CI (Wave C v1.2.0) on every pull request. Pre-commit's job is to catch the few mistakes that are obvious from a one-second check — driver SKILL.md broken, frontmatter malformed — and let CI handle deeper integration. This is the standard fast-shallow-local / slow-deep-CI split.
+
+### Tests
+
+**412 / 412 across 7 suites** unchanged (Wave D ships no source changes). Bonus-sweep gate-clean invariant unchanged: **9 / 9** factory artifacts. Driver canaries green. The hook itself was smoke-tested locally before commit (clean run in 0s wall-time on a no-staged-SKILL.md commit).
+
+### Known unverified at v1.2.1
+
+Inherited from v1.2.0:
+- Live Agent self-bootstrap E2E (Verification C).
+- Live `gh_ensure_local_origin` smoke (Verification B).
+- Stage 11d `test-acme-claude-skills` repo cleanup (Verification A — this is also Wave E, the last remaining wave).
+
+### Deferred post-v1.2.1
+
+- test-acme cleanup (Wave E — best-effort; requires `gh auth refresh -h github.com -s delete_repo` or UI delete).
+
+[1.2.1]: https://github.com/ck22coding/skill-factory/releases/tag/v1.2.1
+
 ## [1.2.0] — 2026-04-29
 
 Wave C — CI on PRs. The repo now runs the full gauntlet + bonus-sweep + driver canaries on every pull request to `main` and every direct push to `main` via GitHub Actions. MINOR bump because new infrastructure enters the contract: every future PR is gated on the same invariants the autonomous-build directive has been hand-running between waves.
