@@ -4,6 +4,44 @@ All notable changes to the Skill Factory.
 
 This project follows [Semantic Versioning](https://semver.org/). v1.0 anchors "first shipped version" per [ADR-0002](docs/decisions/ADR-0002-v1.0-success-criteria.md): 9 sub-skills driver-integrated and gate-clean, 2 real client deliveries, the bonus-sweep self-acceptance invariant satisfied.
 
+## [1.2.2] — 2026-04-29
+
+Wave E — `test-acme-claude-skills` cleanup. GitHub side closed; local directory residual flagged for Carter. PATCH bump because this release ships no code or doc rule changes — it documents the cleanup outcome and updates KNOWN UNVERIFIED.
+
+### Changed (state, not code)
+
+- **GitHub repo `ck22coding/test-acme-claude-skills` — DELETED.** After Carter ran `gh auth refresh -h github.com -s delete_repo` to add the destructive scope to his CLI token, `gh repo delete ck22coding/test-acme-claude-skills --yes` succeeded autonomously. Verified with `gh repo view ck22coding/test-acme-claude-skills` returning `GraphQL: Could not resolve to a Repository`.
+- **Local directory `~/Projects/test-acme-claude-skills/` — pending Carter cleanup.** Pre-commit hook blocked the autonomous `rm -rf` (sensible safety guardrail; conversational approval doesn't translate through the harness's per-tool-call permission system). Cosmetic residual only — the directory has no symlinks pointing at it (already cleaned at Stage 11d) and no impact on factory operation. Carter to run `rm -rf ~/Projects/test-acme-claude-skills` at his convenience.
+
+### Resolved KNOWN UNVERIFIED
+
+- **Verification A — Stage 11d test-acme-claude-skills repo cleanup.** Carried since v1.0.0. The GitHub side is now closed; the local-dir side is a 5-second Carter chore. Remaining KNOWN UNVERIFIED at v1.2.2: Verification B (live `gh_ensure_local_origin` smoke) and Verification C (live Agent self-bootstrap E2E).
+
+### Autonomous-build directive — COMPLETE
+
+This is the closing release of the post-v1.0 autonomous-build wave. Per Carter's 2026-04-29 directive, all 5 deferred-post-v1.0 items have shipped:
+
+| Wave | Release | Theme |
+|---|---|---|
+| A | [v1.1.0](https://github.com/ck22coding/skill-factory/releases/tag/v1.1.0) | Stage 13 — Check 15 + Check 16 close the meta-skill discipline loop |
+| B | [v1.1.1](https://github.com/ck22coding/skill-factory/releases/tag/v1.1.1) | BP-006 ↔ BP-037 body-size band reconciliation |
+| C | [v1.2.0](https://github.com/ck22coding/skill-factory/releases/tag/v1.2.0) | CI on PRs (gauntlet + bonus-sweep + canaries) |
+| D | [v1.2.1](https://github.com/ck22coding/skill-factory/releases/tag/v1.2.1) | Pre-commit hook (opt-in, ~100ms runtime) |
+| E | [v1.2.2](https://github.com/ck22coding/skill-factory/releases/tag/v1.2.2) | test-acme cleanup (GitHub side; local dir pending) |
+
+Five waves shipped in one continuous autonomous session under the directive. Ultrathink decisions surfaced and locked: Wave A bundling (single v1.1.0 not split), Wave A fixture shape (synthetic minimal), Wave A sub-allowlist refinement (6 phase sub-skills, not 9 meta-skills), Wave A regex precision (concrete digits only, template form excluded), Wave B reconciliation direction (option (c) shape differentiation), Wave C scope (all three of gauntlet/bonus-sweep/canaries), Wave C portability (CI symlink not env-var refactor), Wave D framework choice (native git hooks not pre-commit), Wave D scope (canaries + frontmatter, not full gauntlet).
+
+### Tests
+
+**412 / 412 across 7 suites** unchanged. Bonus-sweep gate-clean invariant unchanged: **9 / 9** factory artifacts. Driver canaries green.
+
+### Known unverified at v1.2.2
+
+- Verification B — live `gh_ensure_local_origin` smoke. Existing `~/Projects/optimal-claude-skills/` short-circuits the reconcile path; planned discovery-call-prep re-run unworkable (spec no longer on disk).
+- Verification C — live Agent self-bootstrap E2E. Subagent inlined sub-skill roles instead of spawning live `Agent(subagent_type=general-purpose)` subtasks at v1.0.0; diff/gate invariants confirmed but live-Agent-spawn mechanics still taken on faith.
+
+[1.2.2]: https://github.com/ck22coding/skill-factory/releases/tag/v1.2.2
+
 ## [1.2.1] — 2026-04-29
 
 Wave D — pre-commit hook for fast structural checks. Opt-in dev-loop tooling. Complements Wave C (CI on PRs): pre-commit catches obvious structural regressions in <1s before they ever reach a PR; CI runs the full gauntlet + bonus-sweep on every PR. PATCH bump because the hook is opt-in, doesn't change shipped artifacts, and lives entirely in the developer's local toolchain.
