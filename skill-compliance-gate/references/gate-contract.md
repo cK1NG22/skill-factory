@@ -45,7 +45,11 @@ Either way, the gate catches it before the skill ships. The Check 14 scan
 has two hit patterns:
 
 - **Path form**: the literal string `patterns/meta/bp-NNN` (with any three
-  digits). Catches paths like `~/Projects/skill-factory/patterns/meta/bp-028-blocker-convention.md`.
+  digits). Catches paths matching the template form
+  `~/Projects/skill-factory/patterns/meta/bp-NNN-name.md` — the
+  three-letter "NNN" placeholder is used here instead of a concrete
+  digit-bearing example so this reference file itself stays clean under
+  Stage 13 Check 15's `patterns/(meta/)?bp-\d{3}-name.md` regex.
 - **Slug form**: any of the 11 current meta-BP slugs as a standalone word —
   `bp-018`, `bp-025`, `bp-026`, `bp-027`, `bp-028`, `bp-029`, `bp-030`,
   `bp-031`, `bp-032`, `bp-033`, `bp-034`. The match is case-insensitive

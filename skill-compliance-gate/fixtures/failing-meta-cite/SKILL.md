@@ -1,5 +1,5 @@
 ---
-name: fixture-failing-meta-cite
+name: skill-compliance
 description: Fixture that cleanly passes the 13 compliance checks but violates Check 14 by citing a meta-BP inside references/. Used by skill-compliance-gate tests. Trigger phrases present; description is longer than 100 chars so check #8 passes.
 argument-hint: "<no-args>"
 allowed-tools:

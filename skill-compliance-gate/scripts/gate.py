@@ -27,6 +27,48 @@ META_BP_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Stage 13 Check 15: BP-033 leakage scan applies only to driver-launched
+# phase sub-skills — meta-skills that consume a driver-materialized
+# input.md pack. The driver itself and user-invocable static meta-skills
+# (skill-compliance, skill-spec-validator) do not consume packs and are
+# exempt by design.
+BP033_PHASE_SUBSKILL_SLUGS = frozenset({
+    "skill-frontmatter",
+    "skill-phase-designer",
+    "skill-references-scaffolder",
+    "skill-cron-observability",
+    "skill-signed-handoff",
+    "skill-compliance-gate",
+})
+
+# Stage 13 Check 16: factory-internal slug allowlist. A skill carrying
+# `meta-skill: true` MUST be one of these 9 slugs — anything else is a
+# cross-scope leak (the factory-internal marker bled into a client skill).
+# Symmetric pair to Check 14 across the factory↔client trust boundary.
+FACTORY_INTERNAL_SLUGS = frozenset(BP033_PHASE_SUBSKILL_SLUGS | {
+    "skill-factory",          # the driver itself
+    "skill-compliance",       # user-invocable static meta-skill
+    "skill-spec-validator",   # user-invocable Phase 1 input gate
+})
+
+# BP-033 preamble: a sentence containing both "Read ONLY" and "input.md"
+# within ~500 chars of each other. Defines Signal 1 of Check 15.
+BP033_PREAMBLE_PATTERN = re.compile(
+    r"Read\s+ONLY\b[^\n]{0,500}\binput\.md\b",
+    re.IGNORECASE,
+)
+
+# Concrete patterns/ file path with 3 actual digits. The TEMPLATE form
+# `patterns/bp-NNN-*.md` (literal "NNN" letters) is intentionally NOT
+# matched: sub-skill SKILL.mds use the template form to describe the
+# input.md contract ("for each `patterns/bp-NNN-*.md` listed under BPs
+# to enforce...") which is descriptive, not a direct read. Defines
+# Signal 2 of Check 15.
+BP033_PATTERNS_PATH = re.compile(
+    r"\bpatterns/(?:meta/)?bp-\d{3}-[a-z0-9-]+\.md",
+    re.IGNORECASE,
+)
+
 COMPLIANCE_CHECK_PATH = (
     Path.home() / ".claude" / "skills" / "skill-compliance"
     / "scripts" / "compliance_check.py"
@@ -155,6 +197,105 @@ def is_meta_skill(skill_path: Path) -> bool:
                           re.MULTILINE | re.IGNORECASE))
 
 
+def _read_skill_name(skill_path: Path) -> str | None:
+    """Extract the `name:` field from SKILL.md frontmatter.
+
+    Returns None on missing SKILL.md, missing frontmatter, or missing
+    name key. Used by Check 15 (slug → BP033_PHASE_SUBSKILL_SLUGS) and
+    Check 16 (slug → FACTORY_INTERNAL_SLUGS).
+    """
+    skill_md = skill_path / "SKILL.md"
+    if not skill_md.is_file():
+        return None
+    try:
+        text = skill_md.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if not text.startswith("---"):
+        return None
+    end = text.find("\n---", 3)
+    if end == -1:
+        return None
+    frontmatter = text[3:end]
+    m = re.search(r"^\s*name\s*:\s*(.+?)\s*$", frontmatter, re.MULTILINE)
+    if m:
+        return m.group(1).strip().strip("'\"`")
+    return None
+
+
+def check_15_bp033_leakage(skill_path: Path) -> dict:
+    """Stage 13 Check 15: BP-033 input.md discipline for phase sub-skills.
+
+    Runs ONLY when the skill's slug is in BP033_PHASE_SUBSKILL_SLUGS (the
+    six driver-launched phase sub-skills that consume a materialized pack).
+    The driver and user-invocable static meta-skills are not subject.
+
+    Two signals:
+      Signal 1 (preamble): SKILL.md must contain "Read ONLY ... input.md".
+      Signal 2 (no direct patterns/ read): no scanned file may reference
+        a concrete `patterns/(meta/)?bp-NNN-name.md` path.
+
+    Returns dict: {checked, slug, missing_preamble, hits}.
+    """
+    slug = _read_skill_name(skill_path)
+    if slug not in BP033_PHASE_SUBSKILL_SLUGS:
+        return {"checked": False, "slug": slug,
+                "missing_preamble": False, "hits": []}
+
+    skill_md = skill_path / "SKILL.md"
+    try:
+        skill_text = skill_md.read_text(encoding="utf-8")
+    except OSError:
+        skill_text = ""
+    missing_preamble = not BP033_PREAMBLE_PATTERN.search(skill_text)
+
+    hits: list[dict] = []
+    for file in collect_scan_files(skill_path):
+        try:
+            text = file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            for m in BP033_PATTERNS_PATH.finditer(line):
+                hits.append({
+                    "file": str(file.relative_to(skill_path)),
+                    "line": lineno,
+                    "matched": m.group(0),
+                })
+
+    return {
+        "checked": True,
+        "slug": slug,
+        "missing_preamble": missing_preamble,
+        "hits": hits,
+    }
+
+
+def check_16_cross_scope_meta_skill(skill_path: Path,
+                                    is_meta: bool) -> dict:
+    """Stage 13 Check 16: cross-scope meta-skill marker leakage.
+
+    Symmetric pair to Check 14 across the factory↔client trust boundary.
+    Check 14 prevents inbound leakage (client cites meta-BP). Check 16
+    prevents outbound leakage (client carries the factory-internal
+    `meta-skill: true` marker).
+
+    Runs ONLY when the skill carries `meta-skill: true`. If the slug is
+    not in FACTORY_INTERNAL_SLUGS, the marker has crossed the trust
+    boundary into a client skill.
+
+    Returns dict: {checked, slug, leaked}.
+    """
+    if not is_meta:
+        return {"checked": False, "slug": None, "leaked": False}
+    slug = _read_skill_name(skill_path)
+    return {
+        "checked": True,
+        "slug": slug,
+        "leaked": slug not in FACTORY_INTERNAL_SLUGS,
+    }
+
+
 def required_fails(checker_json: dict) -> list[dict]:
     """Extract required-severity FAILs from the checker's JSON."""
     fails: list[dict] = []
@@ -183,6 +324,10 @@ def evaluate(skill_path: Path, meta_skill: bool | None = None) -> dict:
             "blocker": f"assembled skill not found at {skill_path}",
             "checker_fails": [],
             "check_14_hits": [],
+            "bp033_leakage": {"checked": False, "slug": None,
+                              "missing_preamble": False, "hits": []},
+            "cross_scope_meta": {"checked": False, "slug": None,
+                                 "leaked": False},
             "meta_skill": False,
         }
     if not COMPLIANCE_CHECK_PATH.exists():
@@ -191,6 +336,10 @@ def evaluate(skill_path: Path, meta_skill: bool | None = None) -> dict:
             "blocker": f"skill-compliance not installed at {COMPLIANCE_CHECK_PATH}",
             "checker_fails": [],
             "check_14_hits": [],
+            "bp033_leakage": {"checked": False, "slug": None,
+                              "missing_preamble": False, "hits": []},
+            "cross_scope_meta": {"checked": False, "slug": None,
+                                 "leaked": False},
             "meta_skill": False,
         }
     try:
@@ -201,20 +350,35 @@ def evaluate(skill_path: Path, meta_skill: bool | None = None) -> dict:
             "blocker": str(exc),
             "checker_fails": [],
             "check_14_hits": [],
+            "bp033_leakage": {"checked": False, "slug": None,
+                              "missing_preamble": False, "hits": []},
+            "cross_scope_meta": {"checked": False, "slug": None,
+                                 "leaked": False},
             "meta_skill": False,
         }
     checker_fails = required_fails(checker_json)
 
     # Stage 10c: BP-003 meta-skill exception — Check 14 is for client skills.
-    # Meta-skills (the 7 factory-internal `skill-*` sub-skills + the driver)
-    # legitimately cite factory-internal meta-BPs.
+    # Meta-skills (the 6 factory-internal phase sub-skills + driver + 2
+    # user-invocable static meta-skills) legitimately cite factory-internal
+    # meta-BPs.
     if meta_skill is None:
         meta = is_meta_skill(skill_path)
     else:
         meta = bool(meta_skill)
     hits: list[dict] = [] if meta else check_14_meta_citations(skill_path)
 
-    if checker_fails or hits:
+    # Stage 13 Check 15: BP-033 input.md discipline (phase sub-skills only).
+    bp033 = check_15_bp033_leakage(skill_path)
+    bp033_failed = bp033["checked"] and (
+        bp033["missing_preamble"] or bool(bp033["hits"])
+    )
+
+    # Stage 13 Check 16: cross-scope meta-skill marker (client skills only).
+    cross_scope = check_16_cross_scope_meta_skill(skill_path, meta)
+    cross_scope_failed = cross_scope["checked"] and cross_scope["leaked"]
+
+    if checker_fails or hits or bp033_failed or cross_scope_failed:
         parts = []
         if checker_fails:
             parts.append(
@@ -227,11 +391,37 @@ def evaluate(skill_path: Path, meta_skill: bool | None = None) -> dict:
                 + ", ".join(f"{h['file']}:{h['line']} ({h['matched']})" for h in hits[:5])
                 + (" ..." if len(hits) > 5 else "")
             )
+        if bp033_failed:
+            sub = []
+            if bp033["missing_preamble"]:
+                sub.append(
+                    f"Check 15: BP-033 preamble missing in SKILL.md "
+                    f"({bp033['slug']})"
+                )
+            if bp033["hits"]:
+                sub.append(
+                    f"Check 15: {len(bp033['hits'])} BP-033 patterns/ leak(s) "
+                    + "in " + bp033["slug"] + ": "
+                    + ", ".join(
+                        f"{h['file']}:{h['line']} ({h['matched']})"
+                        for h in bp033["hits"][:5]
+                    )
+                    + (" ..." if len(bp033["hits"]) > 5 else "")
+                )
+            parts.append("; ".join(sub))
+        if cross_scope_failed:
+            parts.append(
+                f"Check 16: cross-scope meta-skill leak — slug "
+                f"'{cross_scope['slug']}' carries meta-skill: true but is "
+                f"not in factory-internal allowlist"
+            )
         return {
             "verdict": "fail",
             "blocker": "compliance gate failed — " + "; ".join(parts),
             "checker_fails": checker_fails,
             "check_14_hits": hits,
+            "bp033_leakage": bp033,
+            "cross_scope_meta": cross_scope,
             "checker_summary": summarize(checker_json),
             "meta_skill": meta,
         }
@@ -240,6 +430,8 @@ def evaluate(skill_path: Path, meta_skill: bool | None = None) -> dict:
         "blocker": None,
         "checker_fails": [],
         "check_14_hits": [],
+        "bp033_leakage": bp033,
+        "cross_scope_meta": cross_scope,
         "checker_summary": summarize(checker_json),
         "meta_skill": meta,
     }
@@ -265,6 +457,10 @@ def summarize(checker_json: dict) -> dict:
 def write_pass_output(phase_dir: Path, verdict: dict, skill_path: Path) -> None:
     """Write output.md summarizing a PASS verdict."""
     s = verdict.get("checker_summary", {})
+    bp033 = verdict.get("bp033_leakage", {})
+    cross_scope = verdict.get("cross_scope_meta", {})
+    bp033_cell = "1" if bp033.get("checked") else "skip"
+    cross_scope_cell = "1" if cross_scope.get("checked") else "skip"
     lines = [
         "# skill-compliance-gate — PASS",
         "",
@@ -274,6 +470,8 @@ def write_pass_output(phase_dir: Path, verdict: dict, skill_path: Path) -> None:
         "|-------------|------|------|------|------|",
         f"| 13 checks   | {s.get('passed', 0)} | {s.get('warnings', 0)} | {s.get('failures', 0)} | {s.get('info', 0)} |",
         f"| Check 14    | 1    | 0    | 0    | 0    |",
+        f"| Check 15    | {bp033_cell:<4} | 0    | 0    | 0    |",
+        f"| Check 16    | {cross_scope_cell:<4} | 0    | 0    | 0    |",
         "",
         "Gate verdict: **pass**.",
         "",
