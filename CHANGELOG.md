@@ -4,6 +4,47 @@ All notable changes to the Skill Factory.
 
 This project follows [Semantic Versioning](https://semver.org/). v1.0 anchors "first shipped version" per [ADR-0002](docs/decisions/ADR-0002-v1.0-success-criteria.md): 9 sub-skills driver-integrated and gate-clean, 2 real client deliveries, the bonus-sweep self-acceptance invariant satisfied.
 
+## [1.2.0] — 2026-04-29
+
+Wave C — CI on PRs. The repo now runs the full gauntlet + bonus-sweep + driver canaries on every pull request to `main` and every direct push to `main` via GitHub Actions. MINOR bump because new infrastructure enters the contract: every future PR is gated on the same invariants the autonomous-build directive has been hand-running between waves.
+
+### Added
+
+- **`.github/workflows/ci.yml`** — single workflow, ~100 lines. Triggers on `pull_request: branches: [main]` + `push: branches: [main]`. Concurrency-controlled with `cancel-in-progress: true` so fixup commits cancel superseded runs. Permissions locked to `contents: read` (least privilege).
+- **CI status badge in `README.md`** — directly under the project tagline. Will show "no status" for the v1.2.0 commit itself (workflow file lands together with the tag) and turn green starting on the first run.
+
+### CI scope (ultrathink-locked)
+
+All three checks the autonomous-build directive treats as load-bearing:
+
+1. **Gauntlet** — 7 sub-skill test suites: `skill-frontmatter` (22), `skill-phase-designer` (33), `skill-references-scaffolder` (51), `skill-cron-observability` (28), `skill-signed-handoff` (36), `skill-factory` (163), `skill-compliance-gate` (79). The job fails closed if the count drops below the v1.1.1 baseline of 412 — a silent test removal would fail CI even if the remaining tests still pass.
+2. **Bonus-sweep** — every one of the 9 factory artifacts (`skill-compliance`, `skill-spec-validator`, the 6 phase sub-skills, `skill-factory` driver) is gate-checked via `gate.py --skill <slug>`. Job fails closed if any artifact does not return `verdict: pass`.
+3. **Driver canaries** — `phase_lint` must report "10 step(s) detected in sequence 1..10" and `references_lint --strict-two-level` must report "10 phase director(s) inspected". These are structural assertions on the driver's two-level director hierarchy (BP-037).
+
+Skipping any of the three would create a coverage gap: gauntlet alone tests units; bonus-sweep tests integration across the factory corpus; canaries test driver structural invariants. Combined runtime is ~10–15s — well within GitHub's free-tier 2,000-minutes-per-month allowance.
+
+### Portability fix encoded in CI (not in source)
+
+The compliance gate's `gate.py` shells out to `~/.claude/skills/skill-compliance/scripts/compliance_check.py`, which is locally a symlink into the repo (the standard install pattern for Claude Code skills). CI reproduces the symlink as a workflow step (`mkdir -p ~/.claude/skills && ln -s "$GITHUB_WORKSPACE/skill-compliance" ~/.claude/skills/skill-compliance`) rather than refactoring `gate.py` to support an env-var override. This keeps CI logic in one file and matches dev-time setup exactly.
+
+### Tests
+
+**412 / 412 across 7 suites** unchanged (Wave C ships infrastructure, not behavior change). Bonus-sweep gate-clean invariant unchanged: **9 / 9** factory artifacts. Driver canaries green: `phase_lint` 10 sequential steps; `references_lint --strict-two-level` 10 phase directors + flat 5-file `references/`.
+
+### Known unverified at v1.2.0
+
+Inherited from v1.1.1. Wave C does not unblock these:
+- Live Agent self-bootstrap E2E (Verification C).
+- Live `gh_ensure_local_origin` smoke (Verification B).
+- Stage 11d `test-acme-claude-skills` repo cleanup (Verification A).
+
+### Deferred post-v1.2.0
+
+- Pre-commit hook (Wave D).
+- test-acme cleanup (Wave E).
+
+[1.2.0]: https://github.com/ck22coding/skill-factory/releases/tag/v1.2.0
+
 ## [1.1.1] — 2026-04-29
 
 Wave B — BP-006 ↔ BP-037 (Principle E) body-size band reconciliation. Pure doc work; zero functional change. Resolves the dormant doc-debt enumerated in [ADR-0002 §1](docs/decisions/ADR-0002-v1.0-success-criteria.md) and queued there as the Stage 14 follow-up.

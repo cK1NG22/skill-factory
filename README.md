@@ -1,5 +1,7 @@
 # skill-factory
 
+[![CI](https://github.com/ck22coding/skill-factory/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ck22coding/skill-factory/actions/workflows/ci.yml)
+
 A composable factory for authoring Claude Code skills from a single input spec — hands-off, trait-classified, compliance-gated. Has shipped 2 client deliveries (`acme-board-memo`, `discovery-call-prep`) end-to-end, hands-off after spec validation.
 
 ## What this is

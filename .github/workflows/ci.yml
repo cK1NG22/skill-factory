@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel any in-progress run for the same ref when a new commit lands so
+# fixup pushes don't queue redundant builds.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Gauntlet + bonus-sweep + canaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up ~/.claude/skills/skill-compliance symlink
+        # The compliance gate's `gate.py` shells out to
+        # ~/.claude/skills/skill-compliance/scripts/compliance_check.py.
+        # Locally that path is a symlink into the repo (per the project's
+        # standard install pattern); CI must reproduce the same shape.
+        run: |
+          mkdir -p "$HOME/.claude/skills"
+          ln -s "$GITHUB_WORKSPACE/skill-compliance" "$HOME/.claude/skills/skill-compliance"
+          ls -la "$HOME/.claude/skills/skill-compliance"
+
+      - name: Gauntlet (7 sub-skill test suites)
+        run: |
+          set -e
+          total=0
+          for suite in skill-frontmatter skill-phase-designer skill-references-scaffolder skill-cron-observability skill-signed-handoff skill-factory skill-compliance-gate; do
+            echo "::group::$suite"
+            n=$(cd "$suite" && python3 -m unittest discover tests 2>&1 | tee /dev/stderr | grep -oE 'Ran [0-9]+ tests' | grep -oE '[0-9]+' | head -1)
+            (cd "$suite" && python3 -m unittest discover tests >/dev/null 2>&1)
+            total=$((total + ${n:-0}))
+            echo "::endgroup::"
+            echo "  $suite: ${n:-?} tests passed"
+          done
+          echo "GAUNTLET TOTAL: $total tests passed"
+          # Lock the floor at the v1.1.1 baseline so a silent test removal
+          # would fail CI even if the remaining tests still pass.
+          if [ "$total" -lt 412 ]; then
+            echo "::error::Gauntlet count $total fell below the 412 baseline."
+            exit 1
+          fi
+
+      - name: Bonus-sweep (9 factory artifacts gate-clean)
+        run: |
+          set -e
+          clean=0
+          for slug in skill-compliance skill-spec-validator skill-frontmatter skill-phase-designer skill-references-scaffolder skill-cron-observability skill-signed-handoff skill-compliance-gate skill-factory; do
+            v=$(python3 skill-compliance-gate/scripts/gate.py --skill "$slug" 2>&1 | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['verdict'])")
+            if [ "$v" = "pass" ]; then
+              clean=$((clean + 1))
+              echo "  $slug: PASS"
+            else
+              echo "::error::Bonus-sweep failure on $slug"
+              python3 skill-compliance-gate/scripts/gate.py --skill "$slug"
+            fi
+          done
+          echo "BONUS-SWEEP: $clean / 9 factory artifacts gate-clean"
+          if [ "$clean" -ne 9 ]; then
+            echo "::error::Bonus-sweep invariant broken: $clean / 9 (must be 9)."
+            exit 1
+          fi
+
+      - name: Driver canary — phase_lint (10 sequential steps)
+        run: |
+          out=$(python3 skill-phase-designer/scripts/phase_lint.py skill-factory/SKILL.md 2>&1)
+          echo "$out"
+          if ! echo "$out" | grep -qE '10 step\(s\) detected in sequence 1\.\.10'; then
+            echo "::error::phase_lint canary regressed — driver SKILL.md no longer reports 10 sequential steps."
+            exit 1
+          fi
+
+      - name: Driver canary — references_lint --strict-two-level (10 phase directors)
+        run: |
+          out=$(python3 skill-references-scaffolder/scripts/references_lint.py skill-factory --strict-two-level 2>&1)
+          echo "$out"
+          if ! echo "$out" | grep -qE '10 phase director\(s\) inspected'; then
+            echo "::error::references_lint canary regressed — driver no longer reports 10 phase directors."
+            exit 1
+          fi
